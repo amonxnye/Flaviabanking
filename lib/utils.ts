@@ -1,4 +1,5 @@
 /* eslint-disable no-prototype-builtins */
+import crypto from 'crypto';
 import { type ClassValue, clsx } from "clsx";
 import qs from "query-string";
 import { twMerge } from "tailwind-merge";
@@ -179,12 +180,22 @@ export function extractCustomerIdFromUrl(url: string) {
   return customerId;
 }
 
+const ID_SIGNING_KEY = process.env.ID_SIGNING_SECRET || 'horizon-default-signing-key-change-in-production';
+
 export function encryptId(id: string) {
-  return btoa(id);
+  const hmac = crypto.createHmac('sha256', ID_SIGNING_KEY).update(id).digest('hex');
+  return `${Buffer.from(id).toString('base64url')}.${hmac.substring(0, 16)}`;
 }
 
-export function decryptId(id: string) {
-  return atob(id);
+export function decryptId(signedId: string) {
+  const [encoded, signature] = signedId.split('.');
+  if (!encoded || !signature) throw new Error('Invalid signed ID format');
+
+  const id = Buffer.from(encoded, 'base64url').toString();
+  const expectedSig = crypto.createHmac('sha256', ID_SIGNING_KEY).update(id).digest('hex').substring(0, 16);
+
+  if (signature !== expectedSig) throw new Error('Invalid ID signature');
+  return id;
 }
 
 export const getTransactionStatus = (date: Date) => {
@@ -196,16 +207,14 @@ export const getTransactionStatus = (date: Date) => {
 };
 
 export const authFormSchema = (type: string) => z.object({
-  // sign up
-  firstName: type === 'sign-in' ? z.string().optional() : z.string().min(3),
-  lastName: type === 'sign-in' ? z.string().optional() : z.string().min(3),
-  address1: type === 'sign-in' ? z.string().optional() : z.string().max(50),
-  city: type === 'sign-in' ? z.string().optional() : z.string().max(50),
-  state: type === 'sign-in' ? z.string().optional() : z.string().min(2).max(2),
-  postalCode: type === 'sign-in' ? z.string().optional() : z.string().min(3).max(6),
-  dateOfBirth: type === 'sign-in' ? z.string().optional() : z.string().min(3),
-  ssn: type === 'sign-in' ? z.string().optional() : z.string().min(3),
-  // both
-  email: z.string().email(),
-  password: z.string().min(8),
+  firstName: type === 'sign-in' ? z.string().optional() : z.string().min(2, 'First name must be at least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'First name contains invalid characters'),
+  lastName: type === 'sign-in' ? z.string().optional() : z.string().min(2, 'Last name must be at least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'Last name contains invalid characters'),
+  address1: type === 'sign-in' ? z.string().optional() : z.string().min(5, 'Address must be at least 5 characters').max(100),
+  city: type === 'sign-in' ? z.string().optional() : z.string().min(2, 'City must be at least 2 characters').max(50),
+  state: type === 'sign-in' ? z.string().optional() : z.string().length(2, 'State must be a 2-letter code').regex(/^[A-Z]{2}$/, 'State must be uppercase (e.g., NY)'),
+  postalCode: type === 'sign-in' ? z.string().optional() : z.string().regex(/^\d{5}(-\d{4})?$/, 'Enter a valid US postal code (e.g., 12345 or 12345-6789)'),
+  dateOfBirth: type === 'sign-in' ? z.string().optional() : z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  ssn: type === 'sign-in' ? z.string().optional() : z.string().regex(/^\d{4}$/, 'Enter last 4 digits of SSN'),
+  email: z.string().email('Please enter a valid email address'),
+  password: type === 'sign-in' ? z.string().min(8, 'Password must be at least 8 characters') : z.string().min(8, 'Password must be at least 8 characters').regex(/[A-Z]/, 'Password must contain at least one uppercase letter').regex(/[0-9]/, 'Password must contain at least one number').regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character'),
 })

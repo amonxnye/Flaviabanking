@@ -9,6 +9,7 @@ import { CountryCode, ProcessorTokenCreateRequest, ProcessorTokenCreateRequestPr
 import { plaidClient } from '@/lib/plaid';
 import { revalidatePath } from "next/cache";
 import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
+import { createAuditLog } from "../audit";
 
 const {
   APPWRITE_DATABASE_ID: DATABASE_ID,
@@ -44,7 +45,9 @@ export const signIn = async ({ email, password }: signInProps) => {
       secure: true,
     });
 
-    const user = await getUserInfo({ userId: session.userId }) 
+    const user = await getUserInfo({ userId: session.userId })
+
+    await createAuditLog({ userId: session.userId, action: 'user.login' });
 
     return parseStringify(user);
   } catch (error) {
@@ -99,6 +102,8 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
       secure: true,
     });
 
+    await createAuditLog({ userId: newUserAccount.$id, action: 'user.signup' });
+
     return parseStringify(newUser);
   } catch (error) {
     console.error('Error', error);
@@ -122,6 +127,9 @@ export async function getLoggedInUser() {
 export const logoutAccount = async () => {
   try {
     const { account } = await createSessionClient();
+    const session = await account.get();
+
+    await createAuditLog({ userId: session.$id, action: 'user.logout' });
 
     cookies().delete('appwrite-session');
 

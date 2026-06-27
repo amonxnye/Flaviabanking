@@ -328,3 +328,43 @@ declare interface getBankProps {
 declare interface getBankByAccountIdProps {
   accountId: string;
 }
+
+// ========================================
+// Enterprise & Self-Service Types
+// ========================================
+
+declare type PlanTier = 'free' | 'pro' | 'enterprise';
+
+declare type OrgRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+declare interface UserProfile extends User {
+  planTier?: PlanTier;
+  organizationId?: string;
+  role?: OrgRole;
+}
+
+declare interface AuditLogEntry {
+  $id: string;
+  userId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  metadata: string;
+  ipAddress: string;
+  userAgent: string;
+  timestamp: string;
+  $createdAt: string;
+}
+
+declare interface SettingsPageProps {
+  user: User;
+}
+
+declare interface PricingCardProps {
+  currentPlan: string;
+}
+
+declare interface UsageDashboardProps {
+  connectedBanks: number;
+  currentPlan: string;
+}

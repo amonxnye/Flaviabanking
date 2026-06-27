@@ -28,15 +28,15 @@ const CategoryBadge = ({ category }: CategoryBadgeProps) => {
 
 const TransactionsTable = ({ transactions }: TransactionTableProps) => {
   return (
-    <Table>
+    <Table aria-label="Transaction history">
       <TableHeader className="bg-[#f9fafb]">
         <TableRow>
-          <TableHead className="px-2">Transaction</TableHead>
-          <TableHead className="px-2">Amount</TableHead>
-          <TableHead className="px-2">Status</TableHead>
-          <TableHead className="px-2">Date</TableHead>
-          <TableHead className="px-2 max-md:hidden">Channel</TableHead>
-          <TableHead className="px-2 max-md:hidden">Category</TableHead>
+          <TableHead className="px-2" scope="col">Transaction</TableHead>
+          <TableHead className="px-2" scope="col">Amount</TableHead>
+          <TableHead className="px-2" scope="col">Status</TableHead>
+          <TableHead className="px-2" scope="col">Date</TableHead>
+          <TableHead className="px-2 max-md:hidden" scope="col">Channel</TableHead>
+          <TableHead className="px-2 max-md:hidden" scope="col">Category</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -46,31 +46,37 @@ const TransactionsTable = ({ transactions }: TransactionTableProps) => {
 
           const isDebit = t.type === 'debit';
           const isCredit = t.type === 'credit';
+          const isNegative = isDebit || amount[0] === '-';
 
           return (
-            <TableRow key={t.id} className={`${isDebit || amount[0] === '-' ? 'bg-[#FFFBFA]' : 'bg-[#F6FEF9]'} !over:bg-none !border-b-DEFAULT`}>
+            <TableRow key={t.id} className={`${isNegative ? 'bg-[#FFFBFA]' : 'bg-[#F6FEF9]'} !over:bg-none !border-b-DEFAULT`}>
               <TableCell className="max-w-[250px] pl-2 pr-10">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-14 truncate font-semibold text-[#344054]">
+                  <span className="text-14 truncate font-semibold text-[#344054]">
                     {removeSpecialCharacters(t.name)}
-                  </h1>
+                  </span>
                 </div>
               </TableCell>
 
               <TableCell className={`pl-2 pr-10 font-semibold ${
-                isDebit || amount[0] === '-' ?
-                  'text-[#f04438]'
-                  : 'text-[#039855]'
+                isNegative ? 'text-[#f04438]' : 'text-[#039855]'
               }`}>
-                {isDebit ? `-${amount}` : isCredit ? amount : amount}
+                <span aria-label={`${isNegative ? 'Debit' : 'Credit'} ${amount}`}>
+                  {isDebit ? `-${amount}` : isCredit ? amount : amount}
+                  <span className="ml-1 text-xs font-normal">
+                    {isNegative ? '(debit)' : '(credit)'}
+                  </span>
+                </span>
               </TableCell>
 
               <TableCell className="pl-2 pr-10">
-                <CategoryBadge category={status} /> 
+                <CategoryBadge category={status} />
               </TableCell>
 
               <TableCell className="min-w-32 pl-2 pr-10">
-                {formatDateTime(new Date(t.date)).dateTime}
+                <time dateTime={new Date(t.date).toISOString()}>
+                  {formatDateTime(new Date(t.date)).dateTime}
+                </time>
               </TableCell>
 
               <TableCell className="pl-2 pr-10 capitalize min-w-24">
@@ -78,7 +84,7 @@ const TransactionsTable = ({ transactions }: TransactionTableProps) => {
               </TableCell>
 
               <TableCell className="pl-2 pr-10 max-md:hidden">
-               <CategoryBadge category={t.category} /> 
+               <CategoryBadge category={t.category} />
               </TableCell>
             </TableRow>
           )
