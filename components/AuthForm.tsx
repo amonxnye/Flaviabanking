@@ -29,6 +29,7 @@ const AuthForm = ({ type }: { type: string }) => {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const formSchema = authFormSchema(type);
 
@@ -44,6 +45,7 @@ const AuthForm = ({ type }: { type: string }) => {
     // 2. Define a submit handler.
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
       setIsLoading(true);
+      setErrorMessage('');
 
       try {
         // Sign up with Appwrite & create plaid token
@@ -76,7 +78,8 @@ const AuthForm = ({ type }: { type: string }) => {
           if(response) router.push('/')
         }
       } catch (error) {
-        console.log(error);
+        const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+        setErrorMessage(message);
       } finally {
         setIsLoading(false);
       }
@@ -142,6 +145,12 @@ const AuthForm = ({ type }: { type: string }) => {
               <CustomInput control={form.control} name='email' label="Email" placeholder='Enter your email' />
 
               <CustomInput control={form.control} name='password' label="Password" placeholder='Enter your password' />
+
+              {errorMessage && (
+                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600" role="alert">
+                  {errorMessage}
+                </div>
+              )}
 
               <div className="flex flex-col gap-4">
                 <Button type="submit" disabled={isLoading} className="form-btn">

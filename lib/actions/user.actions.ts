@@ -51,7 +51,8 @@ export const signIn = async ({ email, password }: signInProps) => {
 
     return parseStringify(user);
   } catch (error) {
-    console.error('Error', error);
+    const message = error instanceof Error ? error.message : 'Invalid email or password';
+    throw new Error(message);
   }
 }
 
@@ -106,7 +107,8 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     return parseStringify(newUser);
   } catch (error) {
-    console.error('Error', error);
+    const message = error instanceof Error ? error.message : 'Failed to create account';
+    throw new Error(message);
   }
 }
 
@@ -134,8 +136,11 @@ export const logoutAccount = async () => {
     cookies().delete('appwrite-session');
 
     await account.deleteSession('current');
+
+    return true;
   } catch (error) {
-    return null;
+    cookies().delete('appwrite-session');
+    return true;
   }
 }
 
