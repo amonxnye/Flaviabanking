@@ -180,10 +180,20 @@ export function extractCustomerIdFromUrl(url: string) {
   return customerId;
 }
 
-const ID_SIGNING_KEY = process.env.ID_SIGNING_SECRET || 'horizon-default-signing-key-change-in-production';
+const DEFAULT_ID_SIGNING_KEY = 'horizon-default-signing-key-change-in-production';
+
+function getIdSigningKey(): string {
+  const key = process.env.ID_SIGNING_SECRET;
+  // In production, refuse to sign IDs with the publicly-known default key —
+  // that would let anyone forge shareable IDs. Fail loud instead.
+  if (process.env.NODE_ENV === 'production' && (!key || key === DEFAULT_ID_SIGNING_KEY)) {
+    throw new Error('ID_SIGNING_SECRET must be set to a unique value in production');
+  }
+  return key || DEFAULT_ID_SIGNING_KEY;
+}
 
 export function encryptId(id: string) {
-  const hmac = crypto.createHmac('sha256', ID_SIGNING_KEY).update(id).digest('hex');
+  const hmac = crypto.createHmac('sha256', getIdSigningKey()).update(id).digest('hex');
   return `${Buffer.from(id).toString('base64url')}.${hmac.substring(0, 16)}`;
 }
 
@@ -192,9 +202,14 @@ export function decryptId(signedId: string) {
   if (!encoded || !signature) throw new Error('Invalid signed ID format');
 
   const id = Buffer.from(encoded, 'base64url').toString();
-  const expectedSig = crypto.createHmac('sha256', ID_SIGNING_KEY).update(id).digest('hex').substring(0, 16);
+  const expectedSig = crypto.createHmac('sha256', getIdSigningKey()).update(id).digest('hex').substring(0, 16);
 
-  if (signature !== expectedSig) throw new Error('Invalid ID signature');
+  // Constant-time comparison to avoid signature-timing side channels.
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    throw new Error('Invalid ID signature');
+  }
   return id;
 }
 

@@ -112,7 +112,7 @@ const SettingsForm = ({ user }: { user: User }) => {
             onClick={() => { setActiveSection(s.key); setMessage(null); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeSection === s.key
-                ? 'border-bankGradient text-blue-700'
+                ? 'border-blue-600 text-blue-700'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
             aria-selected={activeSection === s.key}

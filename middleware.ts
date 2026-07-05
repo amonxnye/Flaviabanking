@@ -15,14 +15,35 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
+  // X-XSS-Protection is deprecated; OWASP recommends disabling it to avoid
+  // legacy-browser vulnerabilities. CSP is the modern XSS control.
+  response.headers.set('X-XSS-Protection', '0');
   response.headers.set(
     'Strict-Transport-Security',
-    'max-age=31536000; includeSubDomains'
+    'max-age=63072000; includeSubDomains; preload'
   );
+  // Lock down powerful browser features we never use.
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+  );
+  // Wildcard hosts cover both Plaid/Dwolla sandbox and production so the CSP
+  // does not silently block real API traffic once PLAID_ENV/DWOLLA_ENV flip.
   response.headers.set(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.plaid.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://cloud.appwrite.io https://sandbox.plaid.com https://api-sandbox.dwolla.com https://*.sentry.io; frame-src https://cdn.plaid.com;"
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.plaid.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.appwrite.io https://*.plaid.com https://*.dwolla.com https://*.sentry.io",
+      "frame-src https://cdn.plaid.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; ')
   );
 
   // Redirect authenticated users away from auth pages
