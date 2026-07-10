@@ -1,7 +1,6 @@
-export const dynamic = 'force-dynamic'
-
 import type { Metadata } from "next";
 import { Inter, IBM_Plex_Serif } from "next/font/google";
+import SkipToContent from "@/components/SkipToContent";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
@@ -25,8 +24,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${ibmPlexSerif.variable}`}>{children}</body>
+    <html lang="en" dir="ltr">
+      <body className={`${inter.variable} ${ibmPlexSerif.variable}`}>
+        <SkipToContent />
+        <div id="main-content">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }

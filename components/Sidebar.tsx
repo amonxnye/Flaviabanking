@@ -12,10 +12,10 @@ const Sidebar = ({ user }: SiderbarProps) => {
   const pathname = usePathname();
 
   return (
-    <section className="sidebar">
+    <section className="sidebar" role="navigation" aria-label="Main navigation">
       <nav className="flex flex-col gap-4">
-        <Link href="/" className="mb-12 cursor-pointer flex items-center gap-2">
-          <Image 
+        <Link href="/" className="mb-12 cursor-pointer flex items-center gap-2" aria-label="Horizon - Go to dashboard">
+          <Image
             src="/icons/logo.svg"
             width={34}
             height={34}
@@ -31,12 +31,15 @@ const Sidebar = ({ user }: SiderbarProps) => {
           return (
             <Link href={item.route} key={item.label}
               className={cn('sidebar-link', { 'bg-bank-gradient': isActive })}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={item.label}
             >
               <div className="relative size-6">
-                <Image 
+                <Image
                   src={item.imgURL}
-                  alt={item.label}
+                  alt=""
                   fill
+                  aria-hidden="true"
                   className={cn({
                     'brightness-[3] invert-0': isActive
                   })}
@@ -48,7 +51,7 @@ const Sidebar = ({ user }: SiderbarProps) => {
             </Link>
           )
         })}
-        
+
         <PlaidLink user={user} />
       </nav>
 

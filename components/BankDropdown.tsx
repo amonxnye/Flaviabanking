@@ -21,12 +21,13 @@ export const BankDropdown = ({
 }: BankDropdownProps) => {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [selected, setSeclected] = useState(accounts[0]);
+  const [selected, setSelected] = useState(accounts[0]);
 
   const handleBankChange = (id: string) => {
-    const account = accounts.find((account) => account.appwriteItemId === id)!;
+    const account = accounts.find((account) => account.appwriteItemId === id);
+    if (!account) return;
 
-    setSeclected(account);
+    setSelected(account);
     const newUrl = formUrlQuery({
       params: searchParams.toString(),
       key: "id",
@@ -41,7 +42,7 @@ export const BankDropdown = ({
 
   return (
     <Select
-      defaultValue={selected.id}
+      defaultValue={selected?.id}
       onValueChange={(value) => handleBankChange(value)}
     >
       <SelectTrigger
@@ -53,7 +54,7 @@ export const BankDropdown = ({
           height={20}
           alt="account"
         />
-        <p className="line-clamp-1 w-full text-left">{selected.name}</p>
+        <p className="line-clamp-1 w-full text-left">{selected?.name}</p>
       </SelectTrigger>
       <SelectContent
         className={`w-full bg-white md:w-[300px] ${otherStyles}`}

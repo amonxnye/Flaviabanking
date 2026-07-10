@@ -37,6 +37,7 @@ const formSchema = z.object({
 const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [transferError, setTransferError] = useState('');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -51,6 +52,7 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
 
   const submit = async (data: z.infer<typeof formSchema>) => {
     setIsLoading(true);
+    setTransferError('');
 
     try {
       const receiverAccountId = decryptId(data.sharableId);
@@ -59,15 +61,20 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
       });
       const senderBank = await getBank({ documentId: data.senderBank });
 
+      if (!receiverBank || !senderBank) {
+        setTransferError('Could not find the specified bank account. Please check the details and try again.');
+        setIsLoading(false);
+        return;
+      }
+
       const transferParams = {
         sourceFundingSourceUrl: senderBank.fundingSourceUrl,
         destinationFundingSourceUrl: receiverBank.fundingSourceUrl,
         amount: data.amount,
       };
-      // create transfer
+
       const transfer = await createTransfer(transferParams);
 
-      // create transfer transaction
       if (transfer) {
         const transaction = {
           name: data.name,
@@ -87,7 +94,8 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         }
       }
     } catch (error) {
-      console.error("Submitting create transfer request failed: ", error);
+      const message = error instanceof Error ? error.message : 'Transfer failed. Please try again.';
+      setTransferError(message);
     }
 
     setIsLoading(false);
@@ -235,6 +243,12 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
             </FormItem>
           )}
         />
+
+        {transferError && (
+          <div className="mx-4 mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600" role="alert">
+            {transferError}
+          </div>
+        )}
 
         <div className="payment-transfer_btn-box">
           <Button type="submit" className="payment-transfer_btn">
