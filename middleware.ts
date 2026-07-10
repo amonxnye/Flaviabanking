@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_ROUTES = ['/sign-in', '/sign-up', '/api/sentry'];
+const PUBLIC_ROUTES = ['/sign-in', '/sign-up', '/api/sentry', '/api/iotec'];
 const AUTH_ROUTES = ['/sign-in', '/sign-up'];
 
 export function middleware(request: NextRequest) {

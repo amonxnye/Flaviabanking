@@ -20,6 +20,11 @@ export const sidebarLinks = [
     label: "Transfer Funds",
   },
   {
+    imgURL: "/icons/coins.svg",
+    route: "/wallet",
+    label: "Wallet",
+  },
+  {
     imgURL: "/icons/settings.svg",
     route: "/settings",
     label: "Settings",
