@@ -116,3 +116,34 @@ Horizon is a Next.js 14 personal-finance platform that lets a user:
 **Is it economically viable?** Not as currently configured (free bank connections + no billing = negative unit economics and zero revenue). It **becomes viable** with two weeks of work (Stripe + free-tier caps) and **becomes attractive** with the SMB/organization pivot the codebase is already architected for.
 
 **The monetization plan in one sentence:** charge consumers for transfers, charge businesses for visibility and control, and charge platforms for the rails — in that order.
+
+---
+
+## 7. Update — Mobile-Money Collections (ioTec Pay) change the near-term picture
+
+Since this analysis was written, a **live mobile-money collections** capability was added
+via ioTec Pay (UGX), wired to a real onboarded merchant (Feyti Medical Group). This is
+significant because it sidesteps the two things that made the US consumer model unviable:
+
+- **No per-user aggregation cost.** ioTec collections cost a **per-transaction fee**, not a
+  standing per-connected-account Plaid fee. There is no "cash furnace" free tier — cost is
+  incurred only when money actually moves.
+- **A real merchant with real cash flow.** A medical group collecting consultation/service
+  fees over mobile money is a concrete, revenue-generating use case in a market (Uganda)
+  where mobile money is the dominant rail — not a speculative consumer PFM play.
+
+### Revised near-term monetization (highest-confidence path)
+
+| Stream | Mechanism | Why it works now |
+|---|---|---|
+| **Collection margin** | Small markup or flat fee on each ioTec collection | Revenue scales with usage, zero fixed per-user cost |
+| **SaaS fee to merchants** | Monthly fee for the wallet dashboard + reconciliation + multi-user (RBAC already built) | SMBs pay for visibility and control over cash collected |
+| **Multi-merchant expansion** | Onboard more clinics/SMBs on the same rails | Marginal cost per new merchant ≈ 0 |
+
+The ACH/Plaid US model (Section 5) remains the longer-term, larger-TAM play, but the ioTec
+collections feature is the **pragmatic first revenue line**: a live merchant, a live rail, and
+unit economics that are positive from the first transaction. Recommended immediate focus:
+(1) confirm ioTec fee structure and set the platform markup, (2) add per-collection references
+for invoice reconciliation, (3) onboard a second merchant to validate repeatability.
+
+*Revision note (2026-07-10): added following the ioTec Pay collections integration.*

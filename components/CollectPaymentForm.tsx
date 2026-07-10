@@ -29,7 +29,11 @@ const formSchema = z.object({
   phone: z
     .string()
     .regex(/^(\+?256|0)?7\d{8}$/, 'Enter a valid Ugandan mobile number (e.g. 0772123456)'),
-  amount: z.coerce.number().min(500, 'Minimum is 500 UGX').max(5_000_000, 'Maximum is 5,000,000 UGX'),
+  amount: z.coerce
+    .number()
+    .int('Enter a whole number of shillings')
+    .min(500, 'Minimum is 500 UGX')
+    .max(5_000_000, 'Maximum is 5,000,000 UGX'),
   channel: z.enum(['Mtn', 'Airtel']),
   note: z.string().max(140).optional(),
 });

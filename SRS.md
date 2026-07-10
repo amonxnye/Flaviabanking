@@ -2,9 +2,9 @@
 
 ## Flaviabanking (Horizon) — Enterprise Banking SaaS Platform
 
-**Version:** 2.0
-**Date:** 2026-06-26
-**Status:** Revised after critical design & business model review
+**Version:** 2.2
+**Date:** 2026-07-10
+**Status:** Revised after reliability hardening, security fixes, and ioTec Pay mobile-money collections
 
 ---
 
@@ -21,6 +21,7 @@ Horizon enables businesses and individuals worldwide to:
 - Connect and manage multiple bank accounts from a single dashboard
 - View consolidated balances, transactions, and spending analytics
 - Transfer funds between platform users via ACH
+- Collect mobile-money payments from customers into a wallet (ioTec Pay, UGX)
 - Manage user roles, permissions, and organizational access
 - Meet regulatory compliance (GDPR, SOC 2, PCI-DSS awareness)
 
@@ -164,7 +165,20 @@ Horizon enables businesses and individuals worldwide to:
 | FR-XFR-04 | Users shall see real-time transfer status feedback (success, error, processing) | Must |
 | FR-XFR-05 | Daily transfer limits shall be enforced per pricing tier | Should |
 
-### 3.5 Self-Service Account Management
+### 3.5 Mobile-Money Wallet & Collections (ioTec Pay)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-WAL-01 | Operators shall request a mobile-money collection from a payer by phone number, amount (UGX), and network (MTN/Airtel) | Must |
+| FR-WAL-02 | Phone numbers shall be normalized to MSISDN (2567XXXXXXXX) and validated as Ugandan mobile numbers | Must |
+| FR-WAL-03 | Each collection shall persist a ledger entry (Pending) before the ioTec request, so no confirmation can be lost to a race | Must |
+| FR-WAL-04 | Collection status shall be confirmed from ioTec authoritatively — via client polling and/or webhook — never trusted from the raw callback body | Must |
+| FR-WAL-05 | Wallet balance shall equal the sum of ALL confirmed (Success) collections for the operator | Must |
+| FR-WAL-06 | The collect form shall show live status feedback (sending → waiting for approval → success/failed) | Must |
+| FR-WAL-07 | The webhook endpoint shall be gated by a shared secret and idempotent under repeated callbacks | Must |
+| FR-WAL-08 | Collection amounts shall be whole shillings within a configured range (500 – 5,000,000 UGX) | Must |
+
+### 3.6 Self-Service Account Management
 
 | ID | Requirement | Priority |
 |---|---|---|
@@ -174,7 +188,7 @@ Horizon enables businesses and individuals worldwide to:
 | FR-SELF-04 | Users shall manage notification preferences | Should |
 | FR-SELF-05 | Users shall view a settings page with security and billing info | Should |
 
-### 3.6 Enterprise & Multi-Tenancy
+### 3.7 Enterprise & Multi-Tenancy
 
 | ID | Requirement | Priority |
 |---|---|---|
@@ -195,6 +209,12 @@ Horizon enables businesses and individuals worldwide to:
 | NFR-SEC-03 | Sensitive data (SSN) shall be masked in API responses (last 4 digits only) |
 | NFR-SEC-04 | API endpoints shall be rate-limited (100 req/min per user) |
 | NFR-SEC-05 | All external IDs shall use HMAC signing, never plain Base64 |
+| NFR-SEC-06 | Signed-ID signature comparison shall be constant-time (timing-safe) |
+| NFR-SEC-07 | Production shall refuse the default ID signing key; a unique secret is mandatory |
+| NFR-SEC-08 | CSP shall allow production Plaid/Dwolla/Appwrite/Sentry hosts (wildcarded), not sandbox-only |
+| NFR-SEC-09 | Powerful browser features (camera, mic, geolocation, payment, USB) shall be disabled via Permissions-Policy |
+| NFR-SEC-10 | Third-party payment credentials (ioTec) shall live only in environment variables, never in source |
+| NFR-SEC-11 | Payment webhooks shall be secret-gated and shall re-verify status with the provider before mutating state |
 
 ### 4.2 Performance
 
@@ -282,6 +302,11 @@ Horizon enables businesses and individuals worldwide to:
 **Actor:** User who forgot password
 **Flow:** Clicks "Forgot password" on login. Receives reset link via email. Sets new password meeting complexity requirements. Logs in successfully. Old sessions invalidated.
 
+### UC-09: Mobile-Money Collection (ioTec Pay)
+
+**Actor:** Business operator (e.g. Feyti Medical Group front desk)
+**Flow:** Operator opens the Wallet page, enters the customer's phone number, amount in UGX, and network. A payment prompt is pushed to the customer's phone. The operator watches live status; on approval the funds settle to the ioTec wallet, a webhook (and/or polling) confirms `Success`, the ledger records it, and the wallet balance increases. Failed or abandoned prompts are recorded as `Failed`/`Pending` and never count toward the balance.
+
 ---
 
 ## 6. System Architecture
@@ -302,14 +327,28 @@ Horizon enables businesses and individuals worldwide to:
                     │  - Business logic                │
                     │  - Audit logging                 │
                     │  - Error handling                │
-                    ├──────────┬──────────┬────────────┤
-                    │          │          │            │
-              ┌─────▼───┐ ┌───▼────┐ ┌───▼────┐      │
-              │ Appwrite │ │  Plaid │ │ Dwolla │      │
-              │  (Auth,  │ │ (Bank  │ │(Payment│      │
-              │  DB)     │ │  Data) │ │  Rail) │      │
-              └──────────┘ └────────┘ └────────┘      │
+                    ├──────┬───────┬───────┬───────────┤
+                    │      │       │       │           │
+              ┌─────▼──┐┌──▼───┐┌──▼───┐┌──▼─────┐    │
+              │Appwrite ││Plaid ││Dwolla││ioTec   │    │
+              │(Auth,   ││(Bank ││(ACH  ││Pay     │    │
+              │DB,      ││Data) ││Rail) ││(Mobile │    │
+              │Ledger)  ││      ││      ││Money)  │    │
+              └─────────┘└──────┘└──────┘└────┬───┘    │
+                                              │        │
+                              webhook ◄───────┘        │
+                    /api/iotec/webhook (secret-gated,  │
+                    re-verifies status with ioTec)     │
 ```
+
+**ioTec Pay collection flow:**
+1. Operator submits phone + amount + network on `/wallet`.
+2. Server action writes a `Pending` ledger row, then calls ioTec `collect`.
+3. ioTec pushes a prompt to the payer's phone (async settlement).
+4. Confirmation arrives two ways, both authoritative (re-fetch from ioTec):
+   - **Webhook** `POST /api/iotec/webhook?secret=…` (server-to-server), and
+   - **Client polling** of `checkCollectionStatus` while the operator waits.
+5. Ledger row transitions to `Success`/`Failed`; balance = Σ `Success`.
 
 ---
 
@@ -319,3 +358,5 @@ Horizon enables businesses and individuals worldwide to:
 |---|---|---|
 | 1.0 | 2024-01-01 | Initial MVP — tutorial-based implementation |
 | 2.0 | 2026-06-26 | Complete SRS rewrite after critical design review. Added: security hardening, self-service features, business model, accessibility, i18n, enterprise features, compliance requirements. See Section 2 for full corrective action plan. |
+| 2.1 | 2026-07-10 | Reliability & security pass: fixed 33 user-facing bugs (auth error surfacing, null-safety, typos); hardened CSP for production hosts, timing-safe signature check, mandatory production signing key, Permissions-Policy; UI polish (password toggle, empty states). |
+| 2.2 | 2026-07-10 | Added ioTec Pay mobile-money collections & wallet (§3.5, UC-09, NFR-SEC-10/11). Ledger-first ordering removes webhook race; balance sums all confirmed collections. |

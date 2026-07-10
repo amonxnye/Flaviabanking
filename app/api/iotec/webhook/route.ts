@@ -45,7 +45,11 @@ export async function POST(request: NextRequest) {
   try {
     // Authoritative re-fetch, then persist.
     const txn = await getTransactionStatus(transactionId);
-    await syncLedgerStatus(transactionId, txn.status as IotecStatus);
+    await syncLedgerStatus(
+      transactionId,
+      txn.status as IotecStatus,
+      txn.externalId as string | undefined
+    );
     return NextResponse.json({ received: true, status: txn.status });
   } catch (error) {
     console.error("ioTec webhook processing failed:", error);

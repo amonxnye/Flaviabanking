@@ -22,14 +22,17 @@ const {
   APPWRITE_WALLET_TX_COLLECTION_ID: WALLET_TX_COLLECTION_ID,
 } = process.env;
 
-// $1 floor equivalent — ioTec collects UGX; enforce a sane range.
+// ioTec collects UGX (no minor units); enforce a sane range.
 const MIN_AMOUNT = 500; // UGX
 const MAX_AMOUNT = 5_000_000; // UGX
+const PAGE_SIZE = 100;
+const MAX_PAGES = 50; // safety cap: up to 5,000 rows summed
 
 const collectSchema = z.object({
   phone: z.string().min(9, "Enter a valid phone number"),
   amount: z
     .number({ invalid_type_error: "Enter a valid amount" })
+    .int("Amount must be a whole number of shillings")
     .min(MIN_AMOUNT, `Minimum collection is ${MIN_AMOUNT} UGX`)
     .max(MAX_AMOUNT, `Maximum collection is ${MAX_AMOUNT} UGX`),
   channel: z.enum(["Mtn", "Airtel"]),
@@ -48,9 +51,12 @@ function ledgerConfigured(): boolean {
 }
 
 /**
- * Initiate a mobile-money collection from a payer. Persists a Pending ledger
- * entry immediately; the amount only counts toward the balance once confirmed
- * Success (via checkCollectionStatus or the webhook).
+ * Initiate a mobile-money collection from a payer.
+ *
+ * Ordering matters: we persist a Pending ledger row BEFORE calling ioTec so the
+ * row always exists by the time a webhook or poll reports back (no race). If the
+ * ioTec call fails, the row is marked Failed. The amount only counts toward the
+ * balance once the status is confirmed Success.
  */
 export const collectFromUser = async (input: CollectInput) => {
   const loggedIn = await getLoggedInUser();
@@ -67,37 +73,78 @@ export const collectFromUser = async (input: CollectInput) => {
   }
 
   const externalId = ID.unique();
+  const useLedger = ledgerConfigured();
+  let ledgerDocId: string | null = null;
 
-  const txn = await initiateCollection({
-    amount: parsed.data.amount,
-    payer: msisdn,
-    channel: parsed.data.channel,
-    externalId,
-    payerNote: parsed.data.note,
-  });
-
-  if (ledgerConfigured()) {
+  // 1. Create the Pending row first.
+  if (useLedger) {
     try {
       const { database } = await createAdminClient();
-      await database.createDocument(
+      const doc = await database.createDocument(
         DATABASE_ID!,
         WALLET_TX_COLLECTION_ID!,
         ID.unique(),
         {
           userId: loggedIn.$id,
-          iotecTransactionId: txn.id,
+          iotecTransactionId: "",
           externalId,
           amount: parsed.data.amount,
           currency: "UGX",
           phone: msisdn,
           channel: parsed.data.channel,
-          status: (txn.status as IotecStatus) || "Pending",
+          status: "Pending" as IotecStatus,
           note: parsed.data.note || "",
           direction: "collection",
         }
       );
+      ledgerDocId = doc.$id;
     } catch (error) {
-      console.error("Failed to persist wallet ledger entry:", error);
+      console.error("Failed to create wallet ledger entry:", error);
+    }
+  }
+
+  // 2. Initiate with ioTec. On failure, mark the row Failed and surface it.
+  let txn;
+  try {
+    txn = await initiateCollection({
+      amount: parsed.data.amount,
+      payer: msisdn,
+      channel: parsed.data.channel,
+      externalId,
+      payerNote: parsed.data.note,
+    });
+  } catch (error) {
+    if (useLedger && ledgerDocId) {
+      try {
+        const { database } = await createAdminClient();
+        await database.updateDocument(
+          DATABASE_ID!,
+          WALLET_TX_COLLECTION_ID!,
+          ledgerDocId,
+          { status: "Failed" as IotecStatus }
+        );
+      } catch (e) {
+        console.error("Failed to mark ledger entry failed:", e);
+      }
+    }
+    throw error;
+  }
+
+  // 3. Backfill the ioTec transaction id and its initial status.
+  if (useLedger && ledgerDocId) {
+    try {
+      const { database } = await createAdminClient();
+      await database.updateDocument(
+        DATABASE_ID!,
+        WALLET_TX_COLLECTION_ID!,
+        ledgerDocId,
+        {
+          iotecTransactionId: txn.id,
+          status: (txn.status as IotecStatus) || "Pending",
+        }
+      );
+    } catch (error) {
+      console.error("Failed to update wallet ledger entry:", error);
     }
   }
 
@@ -124,7 +171,7 @@ export const checkCollectionStatus = async (transactionId: string) => {
   if (!loggedIn) throw new Error("Unauthorized");
 
   const txn = await getTransactionStatus(transactionId);
-  await syncLedgerStatus(transactionId, txn.status as IotecStatus);
+  await syncLedgerStatus(transactionId, txn.status as IotecStatus, txn.externalId as string | undefined);
 
   return parseStringify({
     transactionId: txn.id,
@@ -135,28 +182,49 @@ export const checkCollectionStatus = async (transactionId: string) => {
   });
 };
 
-/** Update the persisted status of a collection by its ioTec transaction id. */
+/**
+ * Update the persisted status of a collection. Looks up by ioTec transaction id,
+ * falling back to externalId (covers the narrow window before the id is backfilled).
+ * Idempotent: repeated callbacks with the same status are harmless.
+ */
 export async function syncLedgerStatus(
   iotecTransactionId: string,
-  status: IotecStatus
+  status: IotecStatus,
+  externalId?: string
 ) {
   if (!ledgerConfigured()) return;
 
   try {
     const { database } = await createAdminClient();
-    const existing = await database.listDocuments(
+
+    let existing = await database.listDocuments(
       DATABASE_ID!,
       WALLET_TX_COLLECTION_ID!,
       [Query.equal("iotecTransactionId", [iotecTransactionId])]
     );
 
+    if (existing.documents.length === 0 && externalId) {
+      existing = await database.listDocuments(
+        DATABASE_ID!,
+        WALLET_TX_COLLECTION_ID!,
+        [Query.equal("externalId", [externalId])]
+      );
+    }
+
     if (existing.documents.length === 0) return;
+
+    const doc = existing.documents[0];
+    const patch: Record<string, unknown> = { status };
+    // Backfill the id if the row was matched by externalId before it was set.
+    if (!doc.iotecTransactionId && iotecTransactionId) {
+      patch.iotecTransactionId = iotecTransactionId;
+    }
 
     await database.updateDocument(
       DATABASE_ID!,
       WALLET_TX_COLLECTION_ID!,
-      existing.documents[0].$id,
-      { status }
+      doc.$id,
+      patch
     );
     revalidatePath("/wallet");
   } catch (error) {
@@ -165,8 +233,8 @@ export async function syncLedgerStatus(
 }
 
 /**
- * Wallet balance = sum of confirmed (Success) collections for this user,
- * plus recent ledger entries for display.
+ * Wallet balance = sum of ALL confirmed (Success) collections for this user
+ * (paginated, not just the latest page), plus the recent ledger for display.
  */
 export const getWallet = async () => {
   const loggedIn = await getLoggedInUser();
@@ -178,13 +246,15 @@ export const getWallet = async () => {
 
   try {
     const { database } = await createAdminClient();
-    const result = await database.listDocuments(
+
+    // Recent entries for display.
+    const recent = await database.listDocuments(
       DATABASE_ID!,
       WALLET_TX_COLLECTION_ID!,
-      [Query.equal("userId", [loggedIn.$id]), Query.orderDesc("$createdAt"), Query.limit(100)]
+      [Query.equal("userId", [loggedIn.$id]), Query.orderDesc("$createdAt"), Query.limit(PAGE_SIZE)]
     );
 
-    const transactions = result.documents.map((doc) => ({
+    const transactions = recent.documents.map((doc) => ({
       id: doc.$id,
       iotecTransactionId: doc.iotecTransactionId,
       amount: doc.amount,
@@ -196,9 +266,22 @@ export const getWallet = async () => {
       createdAt: doc.$createdAt,
     }));
 
-    const balance = transactions
-      .filter((t) => t.status === "Success")
-      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    // Balance across ALL confirmed collections, paginated.
+    let balance = 0;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const chunk = await database.listDocuments(
+        DATABASE_ID!,
+        WALLET_TX_COLLECTION_ID!,
+        [
+          Query.equal("userId", [loggedIn.$id]),
+          Query.equal("status", ["Success"]),
+          Query.limit(PAGE_SIZE),
+          Query.offset(page * PAGE_SIZE),
+        ]
+      );
+      balance += chunk.documents.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+      if (chunk.documents.length < PAGE_SIZE) break;
+    }
 
     return parseStringify({ balance, currency: "UGX", transactions });
   } catch (error) {
