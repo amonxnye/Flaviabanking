@@ -35,7 +35,7 @@ const Footer = ({ user, type = 'desktop' }: FooterProps) => {
         aria-label="Log out"
         type="button"
       >
-        <Image src="icons/logout.svg" fill alt="" aria-hidden="true" />
+        <Image src="/icons/logout.svg" fill alt="" aria-hidden="true" />
       </button>
     </footer>
   )
