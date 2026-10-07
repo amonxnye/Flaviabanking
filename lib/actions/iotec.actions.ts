@@ -46,6 +46,21 @@ export interface CollectInput {
   note?: string;
 }
 
+// Shape of a wallet ledger row as stored in Appwrite.
+interface LedgerDoc {
+  $id: string;
+  $createdAt: string;
+  userId: string;
+  iotecTransactionId?: string;
+  externalId?: string;
+  amount: number;
+  currency?: string;
+  phone: string;
+  channel: string;
+  status: string;
+  note?: string;
+}
+
 function ledgerConfigured(): boolean {
   return Boolean(DATABASE_ID && WALLET_TX_COLLECTION_ID);
 }
@@ -213,7 +228,7 @@ export async function syncLedgerStatus(
 
     if (existing.documents.length === 0) return;
 
-    const doc = existing.documents[0];
+    const doc = existing.documents[0] as unknown as LedgerDoc;
     const patch: Record<string, unknown> = { status };
     // Backfill the id if the row was matched by externalId before it was set.
     if (!doc.iotecTransactionId && iotecTransactionId) {
@@ -254,7 +269,7 @@ export const getWallet = async () => {
       [Query.equal("userId", [loggedIn.$id]), Query.orderDesc("$createdAt"), Query.limit(PAGE_SIZE)]
     );
 
-    const transactions = recent.documents.map((doc) => ({
+    const transactions = (recent.documents as unknown as LedgerDoc[]).map((doc) => ({
       id: doc.$id,
       iotecTransactionId: doc.iotecTransactionId,
       amount: doc.amount,
@@ -279,7 +294,10 @@ export const getWallet = async () => {
           Query.offset(page * PAGE_SIZE),
         ]
       );
-      balance += chunk.documents.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+      balance += (chunk.documents as unknown as LedgerDoc[]).reduce(
+        (sum, d) => sum + (Number(d.amount) || 0),
+        0
+      );
       if (chunk.documents.length < PAGE_SIZE) break;
     }
 

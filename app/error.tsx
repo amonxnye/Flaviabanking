@@ -20,7 +20,7 @@ export default function Error({
         <Image src="/icons/logo.svg" width={40} height={40} alt="Horizon logo" className="mx-auto mb-6" />
         <h1 className="text-3xl font-bold text-gray-900 mb-3">Something went wrong</h1>
         <p className="text-gray-600 mb-8">
-          We're sorry, but something unexpected happened. Our team has been notified.
+          Something unexpected happened on our side. Our team has been notified.
         </p>
         <div className="flex gap-4 justify-center">
           <button

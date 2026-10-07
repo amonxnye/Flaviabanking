@@ -108,16 +108,18 @@ export const exportUserData = async (userId: string) => {
       allTransactions.push(...sent.documents, ...received.documents);
     }
 
+    const profileDoc = userData.documents[0] as unknown as Record<string, string> | undefined;
+
     const exportData = {
       exportDate: new Date().toISOString(),
-      profile: userData.documents[0] ? {
-        firstName: userData.documents[0].firstName,
-        lastName: userData.documents[0].lastName,
-        email: userData.documents[0].email,
-        address1: userData.documents[0].address1,
-        city: userData.documents[0].city,
-        state: userData.documents[0].state,
-        postalCode: userData.documents[0].postalCode,
+      profile: profileDoc ? {
+        firstName: profileDoc.firstName,
+        lastName: profileDoc.lastName,
+        email: profileDoc.email,
+        address1: profileDoc.address1,
+        city: profileDoc.city,
+        state: profileDoc.state,
+        postalCode: profileDoc.postalCode,
       } : null,
       connectedBanks: bankData.documents.length,
       transactions: allTransactions.map(t => ({
@@ -200,7 +202,8 @@ export const unlinkBankAccount = async (userId: string, bankDocumentId: string) 
       [Query.equal('$id', [bankDocumentId])]
     );
 
-    if (bank.documents.length === 0 || bank.documents[0].userId !== userId) {
+    const bankDoc = bank.documents[0] as unknown as { userId?: string } | undefined;
+    if (!bankDoc || bankDoc.userId !== userId) {
       throw new Error('Bank account not found or unauthorized');
     }
 
