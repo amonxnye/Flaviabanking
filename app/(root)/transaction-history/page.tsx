@@ -9,11 +9,13 @@ import React from 'react'
 const TransactionHistory = async ({ searchParams: { id, page }}:SearchParamProps) => {
   const currentPage = Number(page as string) || 1;
   const loggedIn = await getLoggedInUser();
-  const accounts = await getAccounts({ 
-    userId: loggedIn.$id 
+  if (!loggedIn) return null;
+
+  const accounts = await getAccounts({
+    userId: loggedIn.$id
   })
 
-  if(!accounts) return;
+  if(!accounts) return null;
   
   const accountsData = accounts?.data;
   const appwriteItemId = (id as string) || accountsData[0]?.appwriteItemId;
@@ -22,12 +24,12 @@ const TransactionHistory = async ({ searchParams: { id, page }}:SearchParamProps
 
 
 const rowsPerPage = 10;
-const totalPages = Math.ceil(account?.transactions.length / rowsPerPage);
+const totalPages = Math.ceil((account?.transactions?.length || 0) / rowsPerPage);
 
 const indexOfLastTransaction = currentPage * rowsPerPage;
 const indexOfFirstTransaction = indexOfLastTransaction - rowsPerPage;
 
-const currentTransactions = account?.transactions.slice(
+const currentTransactions = (account?.transactions || []).slice(
   indexOfFirstTransaction, indexOfLastTransaction
 )
   return (

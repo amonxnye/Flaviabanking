@@ -1,3 +1,4 @@
+import ErrorBoundary from '@/components/ErrorBoundary';
 import MobileNav from "@/components/MobileNav";
 import Sidebar from "@/components/Sidebar";
 import { getLoggedInUser } from "@/lib/actions/user.actions";
@@ -24,7 +25,7 @@ export default async function RootLayout({
             <MobileNav user={loggedIn} />
           </div>
         </div>
-        {children}
+        <ErrorBoundary>{children}</ErrorBoundary>
       </div>
     </main>
   );
