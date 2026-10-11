@@ -180,7 +180,7 @@ questions by calling **read-only tools** on this app. It cannot move money.
    |---|---|---|
    | `get_wallet_balance` | none | Confirmed wallet balance (UGX) |
    | `list_recent_collections` | `limit` (1-10), `status` (Success/Pending/Failed) | Recent collections, payer phone masked |
-   | `get_linked_accounts` | none | Linked bank names, last 4, balances |
+   | `get_linked_accounts` | none | Accounts: name, holder, institution, last 4, balance, currency |
 
 3. Save each tool's one-time `signing_secret` as `STUDIO_SECRET_<TOOL_NAME_UPPERCASE>`
    (e.g. `STUDIO_SECRET_GET_WALLET_BALANCE`).

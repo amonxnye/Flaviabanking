@@ -15,7 +15,7 @@ const Assistant = async () => {
     <section className="flex w-full flex-col bg-gray-25 p-8">
       <HeaderBox
         title="Assistant"
-        subtext="Ask questions about your wallet, collections and linked accounts."
+        subtext="Ask questions about your accounts, wallet and collections."
       />
       <div className="mt-6 max-w-3xl">
         {isAssistantConfigured() ? (

@@ -44,8 +44,20 @@ env:
   #   secret: IOTEC_WALLET_ID
   # - variable: IOTEC_WEBHOOK_SECRET
   #   secret: IOTEC_WEBHOOK_SECRET
+
+  # --- AI assistant (AgentStudio). All four are needed, plus one signing secret per tool. ---
+  - variable: STUDIO_URL
+    value: https://agentstudio--ridelinkx.us-east4.hosted.app
+  # - variable: STUDIO_AGENT_ID            # id of the agent created in AgentStudio
+  #   value: <agent id>
   # - variable: STUDIO_API_KEY
   #   secret: STUDIO_API_KEY
+  # - variable: STUDIO_SECRET_GET_WALLET_BALANCE
+  #   secret: STUDIO_SECRET_GET_WALLET_BALANCE
+  # - variable: STUDIO_SECRET_LIST_RECENT_COLLECTIONS
+  #   secret: STUDIO_SECRET_LIST_RECENT_COLLECTIONS
+  # - variable: STUDIO_SECRET_GET_LINKED_ACCOUNTS
+  #   secret: STUDIO_SECRET_GET_LINKED_ACCOUNTS
   # - variable: NEXT_PUBLIC_SENTRY_DSN      # optional: your own Sentry project's DSN
   #   secret: NEXT_PUBLIC_SENTRY_DSN
   #   availability: [BUILD, RUNTIME]
