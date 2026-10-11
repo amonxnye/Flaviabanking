@@ -16,6 +16,7 @@ import {
   type IotecStatus,
 } from "../iotec/client";
 import { normalizeUgandanMsisdn } from "../iotec/phone";
+import { ledgerConfigured, loadWalletForUser, type LedgerDoc } from "../wallet-ledger";
 
 const {
   APPWRITE_DATABASE_ID: DATABASE_ID,
@@ -25,8 +26,6 @@ const {
 // ioTec collects UGX (no minor units); enforce a sane range.
 const MIN_AMOUNT = 500; // UGX
 const MAX_AMOUNT = 5_000_000; // UGX
-const PAGE_SIZE = 100;
-const MAX_PAGES = 50; // safety cap: up to 5,000 rows summed
 
 const collectSchema = z.object({
   phone: z.string().min(9, "Enter a valid phone number"),
@@ -44,25 +43,6 @@ export interface CollectInput {
   amount: number;
   channel: "Mtn" | "Airtel";
   note?: string;
-}
-
-// Shape of a wallet ledger row as stored in Appwrite.
-interface LedgerDoc {
-  $id: string;
-  $createdAt: string;
-  userId: string;
-  iotecTransactionId?: string;
-  externalId?: string;
-  amount: number;
-  currency?: string;
-  phone: string;
-  channel: string;
-  status: string;
-  note?: string;
-}
-
-function ledgerConfigured(): boolean {
-  return Boolean(DATABASE_ID && WALLET_TX_COLLECTION_ID);
 }
 
 /**
@@ -255,55 +235,5 @@ export const getWallet = async () => {
   const loggedIn = await getLoggedInUser();
   if (!loggedIn) return parseStringify({ balance: 0, currency: "UGX", transactions: [] });
 
-  if (!ledgerConfigured()) {
-    return parseStringify({ balance: 0, currency: "UGX", transactions: [], notConfigured: true });
-  }
-
-  try {
-    const { database } = await createAdminClient();
-
-    // Recent entries for display.
-    const recent = await database.listDocuments(
-      DATABASE_ID!,
-      WALLET_TX_COLLECTION_ID!,
-      [Query.equal("userId", [loggedIn.$id]), Query.orderDesc("$createdAt"), Query.limit(PAGE_SIZE)]
-    );
-
-    const transactions = (recent.documents as unknown as LedgerDoc[]).map((doc) => ({
-      id: doc.$id,
-      iotecTransactionId: doc.iotecTransactionId,
-      amount: doc.amount,
-      currency: doc.currency || "UGX",
-      phone: doc.phone,
-      channel: doc.channel,
-      status: doc.status,
-      note: doc.note,
-      createdAt: doc.$createdAt,
-    }));
-
-    // Balance across ALL confirmed collections, paginated.
-    let balance = 0;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const chunk = await database.listDocuments(
-        DATABASE_ID!,
-        WALLET_TX_COLLECTION_ID!,
-        [
-          Query.equal("userId", [loggedIn.$id]),
-          Query.equal("status", ["Success"]),
-          Query.limit(PAGE_SIZE),
-          Query.offset(page * PAGE_SIZE),
-        ]
-      );
-      balance += (chunk.documents as unknown as LedgerDoc[]).reduce(
-        (sum, d) => sum + (Number(d.amount) || 0),
-        0
-      );
-      if (chunk.documents.length < PAGE_SIZE) break;
-    }
-
-    return parseStringify({ balance, currency: "UGX", transactions });
-  } catch (error) {
-    console.error("Failed to load wallet:", error);
-    return parseStringify({ balance: 0, currency: "UGX", transactions: [] });
-  }
+  return parseStringify(await loadWalletForUser(loggedIn.$id));
 };

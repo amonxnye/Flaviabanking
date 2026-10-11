@@ -33,6 +33,7 @@ plan tiers, audit logging, accessibility, and the ioTec Pay collections feature.
 | Bank aggregation | Plaid |
 | ACH payments | Dwolla |
 | Mobile money (UGX) | ioTec Pay |
+| AI assistant | AgentStudio |
 | Monitoring | Sentry |
 
 ## Features
@@ -135,11 +136,44 @@ then switch `IOTEC_WALLET_ID` to the live wallet for real transactions.
 4. Status is confirmed two ways, both authoritative: the **webhook** and **client polling**.
 5. The row becomes `Success`/`Failed`; **wallet balance = sum of all `Success` collections**.
 
+## AI assistant (AgentStudio)
+
+The `/assistant` page lets a signed-in user chat with an AI assistant hosted on
+[AgentStudio](https://agentstudio--ridelinkx.us-east4.hosted.app/docs.md). The assistant answers
+questions by calling **read-only tools** on this app. It cannot move money.
+
+### Setup
+
+1. Set `STUDIO_URL`, `STUDIO_API_KEY` and `STUDIO_AGENT_ID` (backend only; see `.env.example`).
+2. Register each tool with AgentStudio (`POST /v1/tools`, `kind: "read"`), pointing `url` at
+   `https://<your-domain>/api/agentstudio/tools/<tool_name>`:
+
+   | Tool | Input | Returns |
+   |---|---|---|
+   | `get_wallet_balance` | none | Confirmed wallet balance (UGX) |
+   | `list_recent_collections` | `limit` (1-10), `status` (Success/Pending/Failed) | Recent collections, payer phone masked |
+   | `get_linked_accounts` | none | Linked bank names, last 4, balances |
+
+3. Save each tool's one-time `signing_secret` as `STUDIO_SECRET_<TOOL_NAME_UPPERCASE>`
+   (e.g. `STUDIO_SECRET_GET_WALLET_BALANCE`).
+4. Create an agent with those `tool_ids` and set its id as `STUDIO_AGENT_ID`.
+
+### Security model
+
+- The API key never reaches the browser; the chat UI talks to server actions only.
+- `external_user_id` is set from the authenticated session, never from client input.
+- Conversation ids are HMAC-bound to their owner, so a user cannot post into another's conversation.
+- Tool endpoints verify `X-Studio-Signature` over the raw body with a per-tool secret, constant-time,
+  with a 5-minute replay window. Unsigned, stale or tampered calls get `401`.
+- Action confirm/cancel happens only on an explicit button press and is audit-logged.
+- The UI discloses that the user is talking to an AI.
+
 ## Project structure
 
 ```
 app/(root)/            Authenticated pages (dashboard, my-banks, transfer, wallet, settings, billing)
 app/api/iotec/webhook  ioTec Pay callback receiver
+app/api/agentstudio    Signed tool endpoints for the AI assistant
 components/             UI components (forms, tables, cards, wallet)
 lib/actions/           Server actions (user, bank, transaction, settings, iotec)
 lib/iotec/             ioTec API client + phone normalization

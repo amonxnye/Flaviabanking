@@ -25,6 +25,11 @@ export const sidebarLinks = [
     label: "Wallet",
   },
   {
+    imgURL: "/icons/monitor.svg",
+    route: "/assistant",
+    label: "Assistant",
+  },
+  {
     imgURL: "/icons/settings.svg",
     route: "/settings",
     label: "Settings",

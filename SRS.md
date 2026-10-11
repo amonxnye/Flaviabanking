@@ -2,7 +2,7 @@
 
 ## Flaviabanking (Horizon) — Enterprise Banking SaaS Platform
 
-**Version:** 2.2
+**Version:** 2.3
 **Date:** 2026-07-10
 **Status:** Revised after reliability hardening, security fixes, and ioTec Pay mobile-money collections
 
@@ -177,6 +177,17 @@ Horizon enables businesses and individuals worldwide to:
 | FR-WAL-06 | The collect form shall show live status feedback (sending → waiting for approval → success/failed) | Must |
 | FR-WAL-07 | The webhook endpoint shall be gated by a shared secret and idempotent under repeated callbacks | Must |
 | FR-WAL-08 | Collection amounts shall be whole shillings within a configured range (500 – 5,000,000 UGX) | Must |
+
+### 3.5a AI Assistant (AgentStudio)
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR-AI-01 | Signed-in users shall chat with an AI assistant that answers questions about their wallet, collections and linked accounts | Should |
+| FR-AI-02 | The assistant shall only use read-only tools; any state-changing action shall require explicit user confirmation and be audit-logged | Must |
+| FR-AI-03 | Tool endpoints shall verify AgentStudio's HMAC signature over the raw body with a 5-minute replay window | Must |
+| FR-AI-04 | The customer identity shall come from the authenticated session; conversation ids shall be bound to their owner | Must |
+| FR-AI-05 | Tool responses shall be minimal and masked (payer phone numbers truncated); SSNs and access tokens shall never be exposed | Must |
+| FR-AI-06 | The UI shall disclose that the user is chatting with an AI | Must |
 
 ### 3.6 Self-Service Account Management
 
@@ -359,4 +370,5 @@ Horizon enables businesses and individuals worldwide to:
 | 1.0 | 2024-01-01 | Initial MVP — tutorial-based implementation |
 | 2.0 | 2026-06-26 | Complete SRS rewrite after critical design review. Added: security hardening, self-service features, business model, accessibility, i18n, enterprise features, compliance requirements. See Section 2 for full corrective action plan. |
 | 2.1 | 2026-07-10 | Reliability & security pass: fixed 33 user-facing bugs (auth error surfacing, null-safety, typos); hardened CSP for production hosts, timing-safe signature check, mandatory production signing key, Permissions-Policy; UI polish (password toggle, empty states). |
+| 2.3 | 2026-10-11 | Added AgentStudio AI assistant (§3.5a): signed read-only tool endpoints, owner-bound conversations, chat UI. Type/lint errors now enforced in builds. |
 | 2.2 | 2026-07-10 | Added ioTec Pay mobile-money collections & wallet (§3.5, UC-09, NFR-SEC-10/11). Ledger-first ordering removes webhook race; balance sums all confirmed collections. |

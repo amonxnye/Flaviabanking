@@ -23,6 +23,8 @@ export type AuditAction =
   | 'transfer.complete'
   | 'transfer.fail'
   | 'wallet.collection.initiated'
+  | 'assistant.action_confirm'
+  | 'assistant.action_cancel'
   | 'data.export'
   | 'settings.update'
   | 'plan.upgrade'
