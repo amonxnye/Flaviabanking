@@ -20,7 +20,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     price: 0,
     priceLabel: 'Free',
     features: [
-      'Connect up to 2 bank accounts',
+      'Track up to 2 accounts',
       'View transaction history',
       'Up to 5 transfers per month',
       'Max $1,000 per transfer',
@@ -38,7 +38,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     price: 14.99,
     priceLabel: '$14.99/mo',
     features: [
-      'Connect up to 10 bank accounts',
+      'Track up to 10 accounts',
       'Full transaction history & search',
       'Up to 50 transfers per month',
       'Max $10,000 per transfer',
@@ -58,7 +58,7 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     price: 49.99,
     priceLabel: '$49.99/mo',
     features: [
-      'Unlimited bank accounts',
+      'Unlimited accounts',
       'Unlimited transfers',
       'Max $50,000 per transfer',
       'Organization & team management',
@@ -85,7 +85,7 @@ export function checkBankLimit(currentCount: number, planTier: PlanTier): { allo
   if (currentCount >= plan.limits.maxConnectedBanks) {
     return {
       allowed: false,
-      message: `Your ${plan.name} plan allows up to ${plan.limits.maxConnectedBanks} connected banks. Upgrade to connect more.`,
+      message: `Your ${plan.name} plan allows up to ${plan.limits.maxConnectedBanks} accounts. Upgrade to add more.`,
     };
   }
   return { allowed: true };

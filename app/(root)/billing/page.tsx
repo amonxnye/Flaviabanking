@@ -1,7 +1,7 @@
 import HeaderBox from '@/components/HeaderBox';
 import PricingCards from '@/components/PricingCards';
 import UsageDashboard from '@/components/UsageDashboard';
-import { getAccounts } from '@/lib/actions/bank.actions';
+import { getAccounts } from '@/lib/actions/account.actions';
 import { getLoggedInUser } from '@/lib/actions/user.actions';
 
 const Billing = async () => {
@@ -21,7 +21,7 @@ const Billing = async () => {
 
         <div className="mt-8 space-y-10">
           <UsageDashboard
-            connectedBanks={accounts?.totalBanks || 0}
+            accountCount={accounts?.totalBanks || 0}
             currentPlan={currentPlan}
           />
 

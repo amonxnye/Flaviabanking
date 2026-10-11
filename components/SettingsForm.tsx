@@ -141,7 +141,7 @@ const SettingsForm = ({ user }: { user: User }) => {
       {activeSection === 'profile' && (
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Edit Profile</h2>
-          <p className="text-sm text-gray-600 mb-6">Update your personal information. Email and SSN cannot be changed.</p>
+          <p className="text-sm text-gray-600 mb-6">Update your personal information. Email cannot be changed.</p>
 
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600">
@@ -217,7 +217,7 @@ const SettingsForm = ({ user }: { user: User }) => {
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-1">Export Your Data</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Download a copy of all your personal data, connected bank info, and transaction history.
+              Download a copy of all your personal data, accounts, and transaction history.
               This is your right under GDPR Article 20 (data portability).
             </p>
             <Button onClick={handleExport} disabled={isLoading} variant="outline" className="border-gray-300">
@@ -239,8 +239,8 @@ const SettingsForm = ({ user }: { user: User }) => {
           <div className="border-t border-gray-200 pt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">Third-Party Services</h2>
             <p className="text-sm text-gray-600">
-              Horizon shares data with Plaid (bank account access) and Dwolla (payment processing)
-              to provide core banking features. No data is sold to third parties.
+              Horizon stores your data in Firebase (Google Cloud) and, if you use the wallet, shares
+              payer phone numbers with ioTec Pay to process mobile-money collections. No data is sold to third parties.
             </p>
           </div>
         </div>

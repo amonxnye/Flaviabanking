@@ -1,5 +1,4 @@
 /* eslint-disable no-prototype-builtins */
-import crypto from 'crypto';
 import { type ClassValue, clsx } from "clsx";
 import qs from "query-string";
 import { twMerge } from "tailwind-merge";
@@ -67,10 +66,10 @@ export const formatDateTime = (dateString: Date) => {
   };
 };
 
-export function formatAmount(amount: number): string {
+export function formatAmount(amount: number, currency: string = "USD"): string {
   const formatter = new Intl.NumberFormat("en-US", {
     style: "currency",
-    currency: "USD",
+    currency,
     minimumFractionDigits: 2,
   });
 
@@ -170,49 +169,6 @@ export function countTransactionCategories(
   return aggregatedCategories;
 }
 
-export function extractCustomerIdFromUrl(url: string) {
-  // Split the URL string by '/'
-  const parts = url.split("/");
-
-  // Extract the last part, which represents the customer ID
-  const customerId = parts[parts.length - 1];
-
-  return customerId;
-}
-
-const DEFAULT_ID_SIGNING_KEY = 'horizon-default-signing-key-change-in-production';
-
-function getIdSigningKey(): string {
-  const key = process.env.ID_SIGNING_SECRET;
-  // In production, refuse to sign IDs with the publicly-known default key —
-  // that would let anyone forge shareable IDs. Fail loud instead.
-  if (process.env.NODE_ENV === 'production' && (!key || key === DEFAULT_ID_SIGNING_KEY)) {
-    throw new Error('ID_SIGNING_SECRET must be set to a unique value in production');
-  }
-  return key || DEFAULT_ID_SIGNING_KEY;
-}
-
-export function encryptId(id: string) {
-  const hmac = crypto.createHmac('sha256', getIdSigningKey()).update(id).digest('hex');
-  return `${Buffer.from(id).toString('base64url')}.${hmac.substring(0, 16)}`;
-}
-
-export function decryptId(signedId: string) {
-  const [encoded, signature] = signedId.split('.');
-  if (!encoded || !signature) throw new Error('Invalid signed ID format');
-
-  const id = Buffer.from(encoded, 'base64url').toString();
-  const expectedSig = crypto.createHmac('sha256', getIdSigningKey()).update(id).digest('hex').substring(0, 16);
-
-  // Constant-time comparison to avoid signature-timing side channels.
-  const sigBuf = Buffer.from(signature);
-  const expBuf = Buffer.from(expectedSig);
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-    throw new Error('Invalid ID signature');
-  }
-  return id;
-}
-
 export const getTransactionStatus = (date: Date) => {
   const today = new Date();
   const twoDaysAgo = new Date(today);
@@ -229,7 +185,6 @@ export const authFormSchema = (type: string) => z.object({
   state: type === 'sign-in' ? z.string().optional() : z.string().length(2, 'State must be a 2-letter code').regex(/^[A-Z]{2}$/, 'State must be uppercase (e.g., NY)'),
   postalCode: type === 'sign-in' ? z.string().optional() : z.string().regex(/^\d{5}(-\d{4})?$/, 'Enter a valid US postal code (e.g., 12345 or 12345-6789)'),
   dateOfBirth: type === 'sign-in' ? z.string().optional() : z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
-  ssn: type === 'sign-in' ? z.string().optional() : z.string().regex(/^\d{4}$/, 'Enter last 4 digits of SSN'),
   email: z.string().email('Please enter a valid email address'),
   password: type === 'sign-in' ? z.string().min(8, 'Password must be at least 8 characters') : z.string().min(8, 'Password must be at least 8 characters').regex(/[A-Z]/, 'Password must contain at least one uppercase letter').regex(/[0-9]/, 'Password must contain at least one number').regex(/[^a-zA-Z0-9]/, 'Password must contain at least one special character'),
 })

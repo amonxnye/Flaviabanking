@@ -5,8 +5,6 @@
   <img src="https://img.shields.io/badge/-Next.js_14-black?style=for-the-badge&logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/-TypeScript-black?style=for-the-badge&logo=typescript&color=3178C6" alt="TypeScript" />
   <img src="https://img.shields.io/badge/-Firebase-black?style=for-the-badge&logo=firebase&color=FFCA28" alt="Firebase" />
-  <img src="https://img.shields.io/badge/-Plaid-black?style=for-the-badge&color=00B57E" alt="Plaid" />
-  <img src="https://img.shields.io/badge/-Dwolla-black?style=for-the-badge&color=444444" alt="Dwolla" />
   <img src="https://img.shields.io/badge/-ioTec_Pay-black?style=for-the-badge&color=1E88E5" alt="ioTec" />
 </div>
 
@@ -30,16 +28,14 @@ plan tiers, audit logging, accessibility, and the ioTec Pay collections feature.
 | Framework | Next.js 14 (App Router), React 18, TypeScript |
 | UI | TailwindCSS, ShadCN / Radix UI, Chart.js |
 | Auth & DB | Firebase Auth + Cloud Firestore (server-side Admin SDK) |
-| Bank aggregation | Plaid |
-| ACH payments | Dwolla |
 | Mobile money (UGX) | ioTec Pay |
 | AI assistant | AgentStudio |
 | Monitoring | Sentry |
 
 ## Features
 
-- **Bank connections** via Plaid Link; unified balances and transaction history.
-- **ACH transfers** between users (Dwolla) with server-side amount limits and validation.
+- **Account management**: add the accounts you hold at any financial institution (name, institution, type, currency, balance) and see balances and history in one place.
+- **Internal transfers** between your own accounts, recorded as ledger entries with both balances updated atomically.
 - **Mobile-money wallet** — request payments from customers by phone (MTN/Airtel),
   confirmed authoritatively and tracked as a wallet balance. See below.
 - **Self-service** — profile editing, GDPR data export (Art. 20), account deletion (Art. 17).
@@ -51,7 +47,7 @@ plan tiers, audit logging, accessibility, and the ioTec Pay collections feature.
 
 ## Quick start
 
-**Prerequisites:** Node 20+, a Firebase project (Email/Password sign-in enabled, Firestore created), and accounts for Plaid, Dwolla (and ioTec Pay for the wallet).
+**Prerequisites:** Node 20+ and a Firebase project (Email/Password sign-in enabled, Firestore created). ioTec Pay is only needed for the mobile-money wallet.
 
 ```bash
 git clone <repo-url>
@@ -66,13 +62,9 @@ npm run dev                  # http://localhost:3000
 Copy `.env.example` and fill in. Key groups:
 
 - **Firebase** — `NEXT_PUBLIC_FIREBASE_*` web config (public). Locally also `FIREBASE_SERVICE_ACCOUNT`; on App Hosting the backend service account is used automatically.
-- **Plaid** — client id, secret, env, products, country codes.
-- **Dwolla** — key, secret, base URL, env.
-- **Security** — `ID_SIGNING_SECRET` (**required in production**; `openssl rand -hex 32`).
 - **ioTec Pay** — see the next section.
 
-> The app **refuses to start signing shareable IDs in production** without a unique
-> `ID_SIGNING_SECRET`, and never commits any third-party secret — keep them in the host env.
+> Never commit third-party secrets — keep them in the host env (`.env` is git-ignored).
 
 ## Firebase setup
 
@@ -83,8 +75,11 @@ Copy `.env.example` and fill in. Key groups:
    ```
    `firestore.rules` denies all client access on purpose: every read/write goes through
    server actions using the Admin SDK, which scope queries to the signed-in user.
-3. **Collections** (created automatically on first write): `users/{uid}`, `banks`, `transactions`,
+3. **Collections** (created automatically on first write): `users/{uid}`, `accounts`, `transactions`,
    `auditLogs`, `walletTransactions`. User profile documents are keyed by the Firebase Auth uid.
+   `accounts` holds the user's manually managed financial-institution accounts (name, institution,
+   type, last-4, currency, balance); `transactions` records transfers between two of those accounts
+   and moves both balances in a single Firestore transaction.
 4. **Sessions**: the browser signs in with Firebase Auth, then a server action exchanges the ID token
    for an httpOnly `__session` cookie (5 days). The browser-side Firebase session is signed out after that.
 
@@ -93,12 +88,9 @@ Copy `.env.example` and fill in. Key groups:
 `apphosting.yaml` holds the public Firebase config. Every secret has to be created first:
 
 ```bash
-firebase apphosting:secrets:set PLAID_CLIENT_ID
-firebase apphosting:secrets:set PLAID_SECRET
-firebase apphosting:secrets:set DWOLLA_KEY
-firebase apphosting:secrets:set DWOLLA_SECRET
-firebase apphosting:secrets:set ID_SIGNING_SECRET   # openssl rand -hex 32
-# plus IOTEC_* and STUDIO_* if those features are on
+# IOTEC_* and STUDIO_* are only needed if those features are on
+firebase apphosting:secrets:set IOTEC_CLIENT_SECRET
+firebase apphosting:secrets:set STUDIO_API_KEY
 ```
 
 then uncomment the matching `secret:` entries in `apphosting.yaml`. The backend's service
@@ -204,9 +196,9 @@ app/(root)/            Authenticated pages (dashboard, my-banks, transfer, walle
 app/api/iotec/webhook  ioTec Pay callback receiver
 app/api/agentstudio    Signed tool endpoints for the AI assistant
 components/             UI components (forms, tables, cards, wallet)
-lib/actions/           Server actions (user, bank, transaction, settings, iotec)
+lib/actions/           Server actions (user, account, transaction, settings, iotec, assistant)
 lib/iotec/             ioTec API client + phone normalization
-lib/                   utils, firebase (admin + client), session, plaid, audit, rbac, plans, i18n
+lib/                   utils, firebase (admin + client), session, audit, rbac, plans, i18n
 middleware.ts          Route protection + security headers
 SRS.md                 Software Requirements Specification
 BUSINESS_ANALYSIS.md   System review, economics, monetization plan
@@ -225,7 +217,7 @@ npm run lint    # eslint
 
 - Never commit real credentials — all secrets live in the host environment.
 - Rotate any secret that has been shared in plaintext (chat, email, tickets).
-- `ID_SIGNING_SECRET` and `IOTEC_*` are required for their respective features in production.
+- `IOTEC_*` and `STUDIO_*` are required for their respective features in production.
 
 ## Status & roadmap
 

@@ -15,7 +15,6 @@ declare type SignUpParams = {
   state: string;
   postalCode: string;
   dateOfBirth: string;
-  ssn: string;
   email: string;
   password: string;
 };
@@ -29,8 +28,6 @@ declare type User = {
   $id: string;
   email: string;
   userId: string;
-  dwollaCustomerUrl: string;
-  dwollaCustomerId: string;
   firstName: string;
   lastName: string;
   name: string;
@@ -39,7 +36,6 @@ declare type User = {
   state: string;
   postalCode: string;
   dateOfBirth: string;
-  ssn: string;
 };
 
 declare type NewUserParams = {
@@ -49,18 +45,21 @@ declare type NewUserParams = {
   password: string;
 };
 
+/** A manually managed financial-institution account (Firestore `accounts`). */
 declare type Account = {
   id: string;
-  availableBalance: number;
-  currentBalance: number;
-  officialName: string;
-  mask: string;
-  institutionId: string;
+  userId: string;
   name: string;
+  institution: string;
   type: string;
   subtype: string;
-  appwriteItemId: string;
-  shareableId: string;
+  /** Last 4 digits of the account number, if given. */
+  mask: string;
+  /** ISO 4217 code, e.g. UGX. */
+  currency: string;
+  currentBalance: number;
+  availableBalance: number;
+  $createdAt?: string;
 };
 
 declare type Transaction = {
@@ -79,16 +78,6 @@ declare type Transaction = {
   channel: string;
   senderBankId: string;
   receiverBankId: string;
-};
-
-declare type Bank = {
-  $id: string;
-  accountId: string;
-  bankId: string;
-  accessToken: string;
-  fundingSourceUrl: string;
-  userId: string;
-  shareableId: string;
 };
 
 declare type AccountTypes =
@@ -111,40 +100,14 @@ declare type Receiver = {
   lastName: string;
 };
 
-declare type TransferParams = {
-  sourceFundingSourceUrl: string;
-  destinationFundingSourceUrl: string;
-  amount: string;
-};
-
-declare type AddFundingSourceParams = {
-  dwollaCustomerId: string;
-  processorToken: string;
-  bankName: string;
-};
-
-declare type NewDwollaCustomerParams = {
-  firstName: string;
-  lastName: string;
-  email: string;
-  type: string;
-  address1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  dateOfBirth: string;
-  ssn: string;
-};
-
 declare interface CreditCardProps {
   account: Account;
   userName: string;
-  showBalance?: boolean;
 }
 
 declare interface BankInfoProps {
   account: Account;
-  appwriteItemId?: string;
+  accountId?: string;
   type: "full" | "card";
 }
 
@@ -172,12 +135,6 @@ declare interface PaginationProps {
   totalPages: number;
 }
 
-declare interface PlaidLinkProps {
-  user: User;
-  variant?: "primary" | "ghost";
-  dwollaCustomerId?: string;
-}
-
 // declare type User = sdk.Models.Document & {
 //   accountId: string;
 //   email: string;
@@ -194,18 +151,21 @@ declare interface AuthFormProps {
 declare interface BankDropdownProps {
   accounts: Account[];
   setValue?: UseFormSetValue<any>;
+  /** Form field written on change (default "senderBank"). */
+  fieldName?: string;
   otherStyles?: string;
 }
 
 declare interface BankTabItemProps {
   account: Account;
-  appwriteItemId?: string;
+  accountId?: string;
 }
 
 declare interface TotalBalanceBoxProps {
   accounts: Account[];
   totalBanks: number;
   totalCurrentBalance: number;
+  currency?: string;
 }
 
 declare interface FooterProps {
@@ -216,7 +176,7 @@ declare interface FooterProps {
 declare interface RightSidebarProps {
   user: User;
   transactions: Transaction[];
-  banks: Bank[] & Account[];
+  accounts: Account[];
 }
 
 declare interface SiderbarProps {
@@ -226,7 +186,7 @@ declare interface SiderbarProps {
 declare interface RecentTransactionsProps {
   accounts: Account[];
   transactions: Transaction[];
-  appwriteItemId: string;
+  accountId: string;
   page: number;
 }
 
@@ -261,36 +221,19 @@ declare interface getAccountsProps {
 }
 
 declare interface getAccountProps {
-  appwriteItemId: string;
+  accountId: string;
 }
 
-declare interface getInstitutionProps {
-  institutionId: string;
-}
-
-declare interface getTransactionsProps {
-  accessToken: string;
-}
-
-declare interface CreateFundingSourceOptions {
-  customerId: string; // Dwolla Customer ID
-  fundingSourceName: string; // Dwolla Funding Source Name
-  plaidToken: string; // Plaid Account Processor Token
-  _links: object; // Dwolla On Demand Authorization Link
-}
-
+/** Internal transfer between two of the signed-in user's accounts. */
 declare interface CreateTransactionProps {
   name: string;
   amount: string;
-  senderId: string;
   senderBankId: string;
-  receiverId: string;
   receiverBankId: string;
-  email: string;
 }
 
-declare interface getTransactionsByBankIdProps {
-  bankId: string;
+declare interface getTransactionsByAccountIdProps {
+  accountId: string;
 }
 
 declare interface signInProps {
@@ -303,32 +246,6 @@ declare type CompleteSignUpParams = Omit<SignUpParams, "password"> & { idToken: 
 
 declare interface getUserInfoProps {
   userId: string;
-}
-
-declare interface exchangePublicTokenProps {
-  publicToken: string;
-  user: User;
-}
-
-declare interface createBankAccountProps {
-  accessToken: string;
-  userId: string;
-  accountId: string;
-  bankId: string;
-  fundingSourceUrl: string;
-  shareableId: string;
-}
-
-declare interface getBanksProps {
-  userId: string;
-}
-
-declare interface getBankProps {
-  documentId: string;
-}
-
-declare interface getBankByAccountIdProps {
-  accountId: string;
 }
 
 // ========================================
@@ -367,6 +284,6 @@ declare interface PricingCardProps {
 }
 
 declare interface UsageDashboardProps {
-  connectedBanks: number;
+  accountCount: number;
   currentPlan: string;
 }

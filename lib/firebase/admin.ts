@@ -33,7 +33,7 @@ export const adminDb = () => getFirestore(getAdminApp());
 
 export const COLLECTIONS = {
   users: "users",
-  banks: "banks",
+  accounts: "accounts",
   transactions: "transactions",
   auditLogs: "auditLogs",
   walletTransactions: "walletTransactions",

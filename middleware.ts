@@ -26,18 +26,16 @@ export function middleware(request: NextRequest) {
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
   );
-  // Wildcard hosts cover both Plaid/Dwolla sandbox and production so the CSP
-  // does not silently block real API traffic once PLAID_ENV/DWOLLA_ENV flip.
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.plaid.com",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.plaid.com https://*.dwolla.com https://*.sentry.io",
-      "frame-src https://cdn.plaid.com",
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.sentry.io",
+      "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
