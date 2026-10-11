@@ -4,7 +4,7 @@
 
   <img src="https://img.shields.io/badge/-Next.js_14-black?style=for-the-badge&logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/-TypeScript-black?style=for-the-badge&logo=typescript&color=3178C6" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/-Appwrite-black?style=for-the-badge&logo=appwrite&color=FD366E" alt="Appwrite" />
+  <img src="https://img.shields.io/badge/-Firebase-black?style=for-the-badge&logo=firebase&color=FFCA28" alt="Firebase" />
   <img src="https://img.shields.io/badge/-Plaid-black?style=for-the-badge&color=00B57E" alt="Plaid" />
   <img src="https://img.shields.io/badge/-Dwolla-black?style=for-the-badge&color=444444" alt="Dwolla" />
   <img src="https://img.shields.io/badge/-ioTec_Pay-black?style=for-the-badge&color=1E88E5" alt="ioTec" />
@@ -29,7 +29,7 @@ plan tiers, audit logging, accessibility, and the ioTec Pay collections feature.
 |---|---|
 | Framework | Next.js 14 (App Router), React 18, TypeScript |
 | UI | TailwindCSS, ShadCN / Radix UI, Chart.js |
-| Auth & DB | Appwrite |
+| Auth & DB | Firebase Auth + Cloud Firestore (server-side Admin SDK) |
 | Bank aggregation | Plaid |
 | ACH payments | Dwolla |
 | Mobile money (UGX) | ioTec Pay |
@@ -51,7 +51,7 @@ plan tiers, audit logging, accessibility, and the ioTec Pay collections feature.
 
 ## Quick start
 
-**Prerequisites:** Node 18+, and accounts for Appwrite, Plaid, Dwolla (and ioTec Pay for the wallet).
+**Prerequisites:** Node 20+, a Firebase project (Email/Password sign-in enabled, Firestore created), and accounts for Plaid, Dwolla (and ioTec Pay for the wallet).
 
 ```bash
 git clone <repo-url>
@@ -65,7 +65,7 @@ npm run dev                  # http://localhost:3000
 
 Copy `.env.example` and fill in. Key groups:
 
-- **Appwrite** — endpoint, project, database & collection IDs, API key.
+- **Firebase** — `NEXT_PUBLIC_FIREBASE_*` web config (public). Locally also `FIREBASE_SERVICE_ACCOUNT`; on App Hosting the backend service account is used automatically.
 - **Plaid** — client id, secret, env, products, country codes.
 - **Dwolla** — key, secret, base URL, env.
 - **Security** — `ID_SIGNING_SECRET` (**required in production**; `openssl rand -hex 32`).
@@ -73,6 +73,36 @@ Copy `.env.example` and fill in. Key groups:
 
 > The app **refuses to start signing shareable IDs in production** without a unique
 > `ID_SIGNING_SECRET`, and never commits any third-party secret — keep them in the host env.
+
+## Firebase setup
+
+1. **Authentication → Sign-in method**: enable *Email/Password*.
+2. **Firestore Database**: create a database (production mode). Then deploy the rules and indexes:
+   ```bash
+   firebase deploy --only firestore
+   ```
+   `firestore.rules` denies all client access on purpose: every read/write goes through
+   server actions using the Admin SDK, which scope queries to the signed-in user.
+3. **Collections** (created automatically on first write): `users/{uid}`, `banks`, `transactions`,
+   `auditLogs`, `walletTransactions`. User profile documents are keyed by the Firebase Auth uid.
+4. **Sessions**: the browser signs in with Firebase Auth, then a server action exchanges the ID token
+   for an httpOnly `__session` cookie (5 days). The browser-side Firebase session is signed out after that.
+
+### Deploying on Firebase App Hosting
+
+`apphosting.yaml` holds the public Firebase config. Every secret has to be created first:
+
+```bash
+firebase apphosting:secrets:set PLAID_CLIENT_ID
+firebase apphosting:secrets:set PLAID_SECRET
+firebase apphosting:secrets:set DWOLLA_KEY
+firebase apphosting:secrets:set DWOLLA_SECRET
+firebase apphosting:secrets:set ID_SIGNING_SECRET   # openssl rand -hex 32
+# plus IOTEC_* and STUDIO_* if those features are on
+```
+
+then uncomment the matching `secret:` entries in `apphosting.yaml`. The backend's service
+account needs the *Firebase Authentication Admin* and *Cloud Datastore User* roles.
 
 ## ioTec Pay — mobile-money collections
 
@@ -85,7 +115,6 @@ IOTEC_CLIENT_ID=pay-xxxxxxxx
 IOTEC_CLIENT_SECRET=xxxxxxxx          # keep secret; rotate if ever exposed
 IOTEC_WALLET_ID=xxxxxxxx              # test wallet first, then the live wallet
 IOTEC_WEBHOOK_SECRET=xxxxxxxx         # openssl rand -hex 24
-APPWRITE_WALLET_TX_COLLECTION_ID=xxx  # Appwrite collection for the ledger
 # Optional overrides (defaults shown):
 # IOTEC_AUTH_URL=https://id.iotec.io/connect/token
 # IOTEC_BASE_URL=https://pay.iotec.io
@@ -93,9 +122,9 @@ APPWRITE_WALLET_TX_COLLECTION_ID=xxx  # Appwrite collection for the ledger
 # IOTEC_STATUS_PATH=/api/collections/{id}
 ```
 
-### 2. Create the Appwrite ledger collection
+### 2. Ledger storage
 
-Create a collection and set its id as `APPWRITE_WALLET_TX_COLLECTION_ID`, with attributes:
+Entries are written to the Firestore collection `walletTransactions` (created on first write). Fields:
 
 | Attribute | Type | Notes |
 |---|---|---|
@@ -177,7 +206,7 @@ app/api/agentstudio    Signed tool endpoints for the AI assistant
 components/             UI components (forms, tables, cards, wallet)
 lib/actions/           Server actions (user, bank, transaction, settings, iotec)
 lib/iotec/             ioTec API client + phone normalization
-lib/                   utils, appwrite, plaid, audit, rbac, plans, i18n
+lib/                   utils, firebase (admin + client), session, plaid, audit, rbac, plans, i18n
 middleware.ts          Route protection + security headers
 SRS.md                 Software Requirements Specification
 BUSINESS_ANALYSIS.md   System review, economics, monetization plan
