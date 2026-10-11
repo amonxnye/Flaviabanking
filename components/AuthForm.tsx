@@ -13,11 +13,13 @@ import CustomInput from './CustomInput';
 import { authFormSchema } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { signIn, signUp } from '@/lib/actions/user.actions';
+import { signIn, signInWithProvider, signUp } from '@/lib/actions/user.actions';
 import { getFirebaseAuth } from '@/lib/firebase/client';
 import {
+  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut,
 } from 'firebase/auth';
 
@@ -40,7 +42,14 @@ const friendlyAuthError = (error: unknown): string => {
       return 'Network error. Check your connection and try again.';
     case 'auth/operation-not-allowed':
     case 'auth/configuration-not-found':
-      return 'Email/password sign-in is not enabled for this app yet.';
+      return 'This sign-in method is not enabled for this app yet.';
+    case 'auth/unauthorized-domain':
+      return 'This domain is not authorised for Google sign-in yet.';
+    case 'auth/popup-closed-by-user':
+    case 'auth/cancelled-popup-request':
+      return 'Google sign-in was cancelled.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google sign-in window. Allow pop-ups and try again.';
     default:
       return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
   }
@@ -80,11 +89,7 @@ const AuthForm = ({ type }: { type: string }) => {
           const userData = {
             firstName: data.firstName!,
             lastName: data.lastName!,
-            address1: data.address1!,
-            city: data.city!,
-            state: data.state!,
-            postalCode: data.postalCode!,
-            dateOfBirth: data.dateOfBirth!,
+            organization: data.organization || '',
             email: data.email,
             idToken,
           }
@@ -121,6 +126,33 @@ const AuthForm = ({ type }: { type: string }) => {
       }
     }
 
+    // Google: works for both sign-in and sign-up — a first-time Google user
+    // gets a profile created from their Google name and email.
+    const onGoogle = async () => {
+      setIsLoading(true);
+      setErrorMessage('');
+
+      try {
+        const auth = getFirebaseAuth();
+        const credential = await signInWithPopup(auth, new GoogleAuthProvider());
+        const idToken = await credential.user.getIdToken();
+
+        const response = await signInWithProvider({ idToken });
+        await signOut(auth);
+
+        if (response?.error) {
+          setErrorMessage(response.error);
+          return;
+        }
+
+        router.push('/');
+      } catch (error) {
+        setErrorMessage(friendlyAuthError(error));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
   return (
     <section className="auth-form">
       <header className='flex flex-col gap-5 md:gap-8'>
@@ -150,15 +182,9 @@ const AuthForm = ({ type }: { type: string }) => {
                 <>
                   <div className="flex gap-4">
                     <CustomInput control={form.control} name='firstName' label="First Name" placeholder='Enter your first name' />
-                    <CustomInput control={form.control} name='lastName' label="Last Name" placeholder='Enter your first name' />
+                    <CustomInput control={form.control} name='lastName' label="Last Name" placeholder='Enter your last name' />
                   </div>
-                  <CustomInput control={form.control} name='address1' label="Address" placeholder='Enter your specific address' />
-                  <CustomInput control={form.control} name='city' label="City" placeholder='Enter your city' />
-                  <div className="flex gap-4">
-                    <CustomInput control={form.control} name='state' label="State" placeholder='Example: NY' />
-                    <CustomInput control={form.control} name='postalCode' label="Postal Code" placeholder='Example: 11101' />
-                  </div>
-                  <CustomInput control={form.control} name='dateOfBirth' label="Date of Birth" placeholder='YYYY-MM-DD' />
+                  <CustomInput control={form.control} name='organization' label="Business / organisation (optional)" placeholder='Leave empty for a personal account' />
                 </>
               )}
 
@@ -185,6 +211,23 @@ const AuthForm = ({ type }: { type: string }) => {
               </div>
             </form>
           </Form>
+
+          <div className="flex items-center gap-3" aria-hidden="true">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-12 text-gray-500">or</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isLoading}
+            onClick={onGoogle}
+            className="flex w-full items-center justify-center gap-3 border-gray-300 bg-white text-16 font-semibold text-gray-700"
+          >
+            <Image src="/icons/google.svg" width={20} height={20} alt="" aria-hidden="true" />
+            Continue with Google
+          </Button>
 
           <footer className="flex justify-center gap-1">
             <p className="text-14 font-normal text-gray-600">

@@ -5,13 +5,16 @@ import { adminAuth, adminDb, COLLECTIONS, toDoc, toDocs } from "../firebase/admi
 import { clearSessionCookie, getSessionUid } from "../session";
 import { parseStringify } from "../utils";
 
+const optionalText = (max: number) => z.string().trim().max(max).optional().default('');
+
 const profileUpdateSchema = z.object({
-  firstName: z.string().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
-  lastName: z.string().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
-  address1: z.string().min(5).max(100),
-  city: z.string().min(2).max(50),
-  state: z.string().length(2).regex(/^[A-Z]{2}$/),
-  postalCode: z.string().regex(/^\d{5}(-\d{4})?$/),
+  firstName: z.string().trim().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
+  lastName: z.string().trim().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
+  organization: optionalText(100),
+  address1: optionalText(100),
+  city: optionalText(50),
+  state: optionalText(50),
+  postalCode: optionalText(20),
 });
 
 async function requireSelf(userId: string) {
@@ -41,10 +44,11 @@ export const updateUserProfile = async (
   data: {
     firstName: string;
     lastName: string;
-    address1: string;
-    city: string;
-    state: string;
-    postalCode: string;
+    organization?: string;
+    address1?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
   }
 ) => {
   try {
@@ -91,6 +95,7 @@ export const exportUserData = async (userId: string) => {
       profile: profileDoc ? {
         firstName: profileDoc.firstName,
         lastName: profileDoc.lastName,
+        organization: profileDoc.organization,
         email: profileDoc.email,
         address1: profileDoc.address1,
         city: profileDoc.city,

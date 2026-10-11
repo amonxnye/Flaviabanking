@@ -17,6 +17,7 @@ const ACCOUNT_TYPES = ['depository', 'credit', 'loan', 'investment', 'other'] as
 
 const schema = z.object({
   name: z.string().trim().min(2, 'At least 2 characters').max(60),
+  holder: z.string().trim().max(80),
   institution: z.string().trim().min(2, 'At least 2 characters').max(80),
   type: z.enum(ACCOUNT_TYPES),
   subtype: z.string().trim().max(40),
@@ -29,6 +30,7 @@ type FormValues = z.infer<typeof schema>;
 
 const emptyValues: FormValues = {
   name: '',
+  holder: '',
   institution: '',
   type: 'depository',
   subtype: '',
@@ -57,6 +59,7 @@ const ManageAccounts = ({ accounts, userName }: { accounts: Account[]; userName:
     setEditing(account);
     form.reset({
       name: account.name,
+      holder: account.holder,
       institution: account.institution,
       type: (ACCOUNT_TYPES as readonly string[]).includes(account.type) ? (account.type as FormValues['type']) : 'other',
       subtype: account.subtype,
@@ -145,6 +148,14 @@ const ManageAccounts = ({ accounts, userName }: { accounts: Account[]; userName:
               )} />
             </div>
 
+            <FormField control={form.control} name="holder" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Account holder (optional)</FormLabel>
+                <FormControl><Input placeholder="Client name — leave empty if this account is yours" className="input-class" {...field} /></FormControl>
+                <FormMessage className="text-12 text-red-500" />
+              </FormItem>
+            )} />
+
             <div className="flex gap-4 max-sm:flex-col">
               <FormField control={form.control} name="type" render={({ field }) => (
                 <FormItem className="flex-1">
@@ -223,7 +234,7 @@ const ManageAccounts = ({ accounts, userName }: { accounts: Account[]; userName:
       ) : !showForm && (
         <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-16 text-center">
           <h3 className="text-18 font-semibold text-gray-900">No accounts yet</h3>
-          <p className="max-w-md text-14 text-gray-600">Add the accounts you hold at your financial institutions to track balances and record transfers.</p>
+          <p className="max-w-md text-14 text-gray-600">Add your own accounts and the ones you manage for clients to track balances and record transfers.</p>
         </div>
       )}
     </div>

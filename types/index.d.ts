@@ -10,11 +10,8 @@ declare type SearchParamProps = {
 declare type SignUpParams = {
   firstName: string;
   lastName: string;
-  address1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  dateOfBirth: string;
+  /** Business or firm name, when a company opens the account. */
+  organization?: string;
   email: string;
   password: string;
 };
@@ -31,11 +28,12 @@ declare type User = {
   firstName: string;
   lastName: string;
   name: string;
-  address1: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  dateOfBirth: string;
+  organization?: string;
+  address1?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  dateOfBirth?: string;
 };
 
 declare type NewUserParams = {
@@ -50,6 +48,8 @@ declare type Account = {
   id: string;
   userId: string;
   name: string;
+  /** Whose account this is: a client's name, or empty for the user's own. */
+  holder: string;
   institution: string;
   type: string;
   subtype: string;
@@ -237,7 +237,7 @@ declare interface getTransactionsByAccountIdProps {
 }
 
 declare interface signInProps {
-  /** Firebase ID token obtained in the browser after signInWithEmailAndPassword. */
+  /** Firebase ID token obtained in the browser after a Firebase Auth sign-in. */
   idToken: string;
 }
 

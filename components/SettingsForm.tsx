@@ -25,10 +25,11 @@ import {
 const profileSchema = z.object({
   firstName: z.string().min(2, 'At least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'Invalid characters'),
   lastName: z.string().min(2, 'At least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'Invalid characters'),
-  address1: z.string().min(5, 'At least 5 characters').max(100),
-  city: z.string().min(2).max(50),
-  state: z.string().length(2, 'Use 2-letter code').regex(/^[A-Z]{2}$/, 'Must be uppercase'),
-  postalCode: z.string().regex(/^\d{5}(-\d{4})?$/, 'Invalid postal code'),
+  organization: z.string().max(100, 'Too long'),
+  address1: z.string().max(100, 'Too long'),
+  city: z.string().max(50, 'Too long'),
+  state: z.string().max(50, 'Too long'),
+  postalCode: z.string().max(20, 'Too long'),
 });
 
 const SettingsForm = ({ user }: { user: User }) => {
@@ -44,6 +45,7 @@ const SettingsForm = ({ user }: { user: User }) => {
     defaultValues: {
       firstName: user.firstName || '',
       lastName: user.lastName || '',
+      organization: user.organization || '',
       address1: user.address1 || '',
       city: user.city || '',
       state: user.state || '',
@@ -168,9 +170,17 @@ const SettingsForm = ({ user }: { user: User }) => {
                 )} />
               </div>
 
+              <FormField control={form.control} name="organization" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Business / organisation (optional)</FormLabel>
+                  <FormControl><Input {...field} placeholder="Leave empty for a personal account" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="address1" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Address (optional)</FormLabel>
                   <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -178,7 +188,7 @@ const SettingsForm = ({ user }: { user: User }) => {
 
               <FormField control={form.control} name="city" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>City</FormLabel>
+                  <FormLabel>City (optional)</FormLabel>
                   <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -187,15 +197,15 @@ const SettingsForm = ({ user }: { user: User }) => {
               <div className="flex gap-4">
                 <FormField control={form.control} name="state" render={({ field }) => (
                   <FormItem className="flex-1">
-                    <FormLabel>State</FormLabel>
-                    <FormControl><Input {...field} placeholder="NY" /></FormControl>
+                    <FormLabel>Region / state (optional)</FormLabel>
+                    <FormControl><Input {...field} placeholder="e.g. Central" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="postalCode" render={({ field }) => (
                   <FormItem className="flex-1">
-                    <FormLabel>Postal Code</FormLabel>
-                    <FormControl><Input {...field} placeholder="12345" /></FormControl>
+                    <FormLabel>Postal code (optional)</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />

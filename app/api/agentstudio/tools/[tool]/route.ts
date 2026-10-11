@@ -70,6 +70,7 @@ const TOOLS: Record<string, Handler> = {
       count: data.length,
       accounts: data.map((a) => ({
         name: a.name,
+        holder: a.holder || "own",
         institution: a.institution,
         type: a.type,
         last4: a.mask,

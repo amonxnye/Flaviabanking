@@ -20,7 +20,7 @@ const BankCard = ({ account, userName }: CreditCardProps) => {
           <article className="flex flex-col gap-2">
             <div className="flex justify-between">
               <h1 className="text-12 font-semibold text-white">
-                {userName}
+                {account.holder || userName}
               </h1>
               <h2 className="text-12 font-semibold text-white">
                 {account.institution}

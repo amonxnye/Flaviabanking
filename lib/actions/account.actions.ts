@@ -20,6 +20,8 @@ const ACCOUNT_TYPES = ["depository", "credit", "loan", "investment", "other"] as
 
 const accountSchema = z.object({
   name: z.string().trim().min(2, "Account name is too short").max(60),
+  // Empty = the user's own account; otherwise the client it is managed for.
+  holder: z.string().trim().max(80).optional().default(""),
   institution: z.string().trim().min(2, "Institution name is too short").max(80),
   type: z.enum(ACCOUNT_TYPES),
   subtype: z.string().trim().max(40).optional().default(""),
@@ -41,6 +43,7 @@ interface AccountDoc {
   $createdAt: string;
   userId: string;
   name: string;
+  holder?: string;
   institution: string;
   type: string;
   subtype?: string;
@@ -53,6 +56,7 @@ const toAccount = (doc: AccountDoc): Account => ({
   id: doc.$id,
   userId: doc.userId,
   name: doc.name,
+  holder: doc.holder || "",
   institution: doc.institution,
   type: doc.type,
   subtype: doc.subtype || "",

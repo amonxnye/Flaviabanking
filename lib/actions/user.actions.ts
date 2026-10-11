@@ -44,6 +44,43 @@ export const signIn = async ({ idToken }: signInProps) => {
 }
 
 /**
+ * Google (or any Firebase provider) sign-in: the browser already authenticated,
+ * so a missing profile is created from the token's name and email instead of
+ * sending the user through the sign-up form.
+ */
+export const signInWithProvider = async ({ idToken }: signInProps) => {
+  try {
+    const decoded = await adminAuth().verifyIdToken(idToken);
+    const uid = decoded.uid;
+
+    let user = await getUserInfo({ userId: uid });
+    if (!user) {
+      const displayName = (decoded.name as string | undefined)?.trim() || decoded.email?.split('@')[0] || 'User';
+      const [firstName, ...rest] = displayName.split(/\s+/);
+      const profile = {
+        email: decoded.email || '',
+        firstName,
+        lastName: rest.join(' ') || '',
+        organization: '',
+        userId: uid,
+        name: displayName,
+      };
+      await adminDb().collection(COLLECTIONS.users).doc(uid).set({ ...profile, createdAt: serverTimestamp() });
+      await createAuditLog({ userId: uid, action: 'user.signup' });
+      user = parseStringify({ $id: uid, ...profile });
+    }
+
+    await createSessionCookie(idToken);
+    await createAuditLog({ userId: uid, action: 'user.login' });
+
+    return user;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Sign-in failed';
+    return { error: message };
+  }
+}
+
+/**
  * Called after the browser created the Firebase Auth user. Creates the profile
  * document, then starts the session. If anything fails the just-created auth
  * user is removed so the email can be retried.
@@ -61,6 +98,7 @@ export const signUp = async ({ idToken, ...userData }: CompleteSignUpParams) => 
 
     const profile = {
       ...userData,
+      organization: userData.organization?.trim() || '',
       userId: uid,
       name: `${firstName} ${lastName}`,
     };

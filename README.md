@@ -68,7 +68,10 @@ Copy `.env.example` and fill in. Key groups:
 
 ## Firebase setup
 
-1. **Authentication → Sign-in method**: enable *Email/Password*.
+1. **Authentication → Sign-in method**: enable *Email/Password* and *Google*.
+   Under **Authentication → Settings → Authorized domains** add the site's domain
+   (e.g. `flaviafintech--silkevents-ug.us-east4.hosted.app`), or Google sign-in fails with
+   `auth/unauthorized-domain`.
 2. **Firestore Database**: create a database (production mode). Then deploy the rules and indexes:
    ```bash
    firebase deploy --only firestore
@@ -80,8 +83,12 @@ Copy `.env.example` and fill in. Key groups:
    `accounts` holds the user's manually managed financial-institution accounts (name, institution,
    type, last-4, currency, balance); `transactions` records transfers between two of those accounts
    and moves both balances in a single Firestore transaction.
-4. **Sessions**: the browser signs in with Firebase Auth, then a server action exchanges the ID token
-   for an httpOnly `__session` cookie (5 days). The browser-side Firebase session is signed out after that.
+4. **Sessions**: the browser signs in with Firebase Auth (email/password or Google), then a server action
+   exchanges the ID token for an httpOnly `__session` cookie (5 days). The browser-side Firebase session is
+   signed out after that. A first Google sign-in creates the profile from the Google name and email.
+5. **Who can sign up**: anyone — an individual or a business (optional organisation name). Each user
+   manages their own accounts and the accounts of their clients (the *account holder* field). The app
+   only records data; it never moves money.
 
 ### Deploying on Firebase App Hosting
 
