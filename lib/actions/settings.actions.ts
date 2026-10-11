@@ -1,17 +1,9 @@
 'use server';
 
-import { ID, Query } from "node-appwrite";
-import { createAdminClient, createSessionClient } from "../appwrite";
-import { parseStringify } from "../utils";
-import { cookies } from "next/headers";
 import { z } from "zod";
-
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-  APPWRITE_USER_COLLECTION_ID: USER_COLLECTION_ID,
-  APPWRITE_BANK_COLLECTION_ID: BANK_COLLECTION_ID,
-  APPWRITE_TRANSACTION_COLLECTION_ID: TRANSACTION_COLLECTION_ID,
-} = process.env;
+import { adminAuth, adminDb, COLLECTIONS, toDoc, toDocs } from "../firebase/admin";
+import { clearSessionCookie, getSessionUid } from "../session";
+import { parseStringify } from "../utils";
 
 const profileUpdateSchema = z.object({
   firstName: z.string().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
@@ -21,6 +13,28 @@ const profileUpdateSchema = z.object({
   state: z.string().length(2).regex(/^[A-Z]{2}$/),
   postalCode: z.string().regex(/^\d{5}(-\d{4})?$/),
 });
+
+async function requireSelf(userId: string) {
+  const uid = await getSessionUid();
+  if (!uid || uid !== userId) {
+    throw new Error('Unauthorized');
+  }
+  return uid;
+}
+
+async function listUserBanks(userId: string) {
+  const snap = await adminDb().collection(COLLECTIONS.banks).where('userId', '==', userId).get();
+  return toDocs<{ userId: string }>(snap);
+}
+
+async function listBankTransactions(bankId: string) {
+  const col = adminDb().collection(COLLECTIONS.transactions);
+  const [sent, received] = await Promise.all([
+    col.where('senderBankId', '==', bankId).get(),
+    col.where('receiverBankId', '==', bankId).get(),
+  ]);
+  return { sent: toDocs(sent), received: toDocs(received) };
+}
 
 export const updateUserProfile = async (
   userId: string,
@@ -35,34 +49,20 @@ export const updateUserProfile = async (
 ) => {
   try {
     const validated = profileUpdateSchema.parse(data);
+    await requireSelf(userId);
 
-    const { account } = await createSessionClient();
-    const session = await account.get();
-    if (session.$id !== userId) {
-      throw new Error('Unauthorized: cannot update another user\'s profile');
-    }
-
-    const { database } = await createAdminClient();
-
-    const users = await database.listDocuments(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
-    );
-
-    if (users.documents.length === 0) {
+    const ref = adminDb().collection(COLLECTIONS.users).doc(userId);
+    const existing = await ref.get();
+    if (!existing.exists) {
       throw new Error('User not found');
     }
 
-    const userDoc = users.documents[0];
-    const updated = await database.updateDocument(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      userDoc.$id,
-      validated
-    );
+    await ref.update({
+      ...validated,
+      name: `${validated.firstName} ${validated.lastName}`,
+    });
 
-    return parseStringify(updated);
+    return parseStringify(toDoc(await ref.get()));
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(`Validation failed: ${error.errors.map(e => e.message).join(', ')}`);
@@ -73,42 +73,18 @@ export const updateUserProfile = async (
 
 export const exportUserData = async (userId: string) => {
   try {
-    const { account } = await createSessionClient();
-    const session = await account.get();
-    if (session.$id !== userId) {
-      throw new Error('Unauthorized');
-    }
+    await requireSelf(userId);
 
-    const { database } = await createAdminClient();
-
-    const userData = await database.listDocuments(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
+    const profileDoc = toDoc<Record<string, string>>(
+      await adminDb().collection(COLLECTIONS.users).doc(userId).get()
     );
-
-    const bankData = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
-    );
+    const banks = await listUserBanks(userId);
 
     const allTransactions: any[] = [];
-    for (const bank of bankData.documents) {
-      const sent = await database.listDocuments(
-        DATABASE_ID!,
-        TRANSACTION_COLLECTION_ID!,
-        [Query.equal('senderBankId', bank.$id)]
-      );
-      const received = await database.listDocuments(
-        DATABASE_ID!,
-        TRANSACTION_COLLECTION_ID!,
-        [Query.equal('receiverBankId', bank.$id)]
-      );
-      allTransactions.push(...sent.documents, ...received.documents);
+    for (const bank of banks) {
+      const { sent, received } = await listBankTransactions(bank.$id);
+      allTransactions.push(...sent, ...received);
     }
-
-    const profileDoc = userData.documents[0] as unknown as Record<string, string> | undefined;
 
     const exportData = {
       exportDate: new Date().toISOString(),
@@ -121,7 +97,7 @@ export const exportUserData = async (userId: string) => {
         state: profileDoc.state,
         postalCode: profileDoc.postalCode,
       } : null,
-      connectedBanks: bankData.documents.length,
+      connectedBanks: banks.length,
       transactions: allTransactions.map(t => ({
         name: t.name,
         amount: t.amount,
@@ -141,43 +117,22 @@ export const exportUserData = async (userId: string) => {
 
 export const deleteUserAccount = async (userId: string) => {
   try {
-    const { account } = await createSessionClient();
-    const session = await account.get();
-    if (session.$id !== userId) {
-      throw new Error('Unauthorized');
-    }
+    await requireSelf(userId);
 
-    const { database, user } = await createAdminClient();
-
-    const bankDocs = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
-    );
-    for (const bank of bankDocs.documents) {
-      const sentTxns = await database.listDocuments(
-        DATABASE_ID!,
-        TRANSACTION_COLLECTION_ID!,
-        [Query.equal('senderBankId', bank.$id)]
-      );
-      for (const txn of sentTxns.documents) {
-        await database.deleteDocument(DATABASE_ID!, TRANSACTION_COLLECTION_ID!, txn.$id);
+    const db = adminDb();
+    const banks = await listUserBanks(userId);
+    for (const bank of banks) {
+      const { sent } = await listBankTransactions(bank.$id);
+      for (const txn of sent) {
+        await db.collection(COLLECTIONS.transactions).doc(txn.$id).delete();
       }
-      await database.deleteDocument(DATABASE_ID!, BANK_COLLECTION_ID!, bank.$id);
+      await db.collection(COLLECTIONS.banks).doc(bank.$id).delete();
     }
 
-    const userDocs = await database.listDocuments(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
-    );
-    for (const doc of userDocs.documents) {
-      await database.deleteDocument(DATABASE_ID!, USER_COLLECTION_ID!, doc.$id);
-    }
+    await db.collection(COLLECTIONS.users).doc(userId).delete();
+    await adminAuth().deleteUser(userId);
 
-    await user.delete(userId);
-
-    cookies().delete('appwrite-session');
+    clearSessionCookie();
 
     return { success: true };
   } catch (error) {
@@ -188,26 +143,15 @@ export const deleteUserAccount = async (userId: string) => {
 
 export const unlinkBankAccount = async (userId: string, bankDocumentId: string) => {
   try {
-    const { account } = await createSessionClient();
-    const session = await account.get();
-    if (session.$id !== userId) {
-      throw new Error('Unauthorized');
-    }
+    await requireSelf(userId);
 
-    const { database } = await createAdminClient();
-
-    const bank = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal('$id', [bankDocumentId])]
-    );
-
-    const bankDoc = bank.documents[0] as unknown as { userId?: string } | undefined;
+    const ref = adminDb().collection(COLLECTIONS.banks).doc(bankDocumentId);
+    const bankDoc = toDoc<{ userId?: string }>(await ref.get());
     if (!bankDoc || bankDoc.userId !== userId) {
       throw new Error('Bank account not found or unauthorized');
     }
 
-    await database.deleteDocument(DATABASE_ID!, BANK_COLLECTION_ID!, bankDocumentId);
+    await ref.delete();
 
     return { success: true };
   } catch (error) {

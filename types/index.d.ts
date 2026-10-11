@@ -294,9 +294,12 @@ declare interface getTransactionsByBankIdProps {
 }
 
 declare interface signInProps {
-  email: string;
-  password: string;
+  /** Firebase ID token obtained in the browser after signInWithEmailAndPassword. */
+  idToken: string;
 }
+
+/** Sign-up data sent to the server after the Firebase Auth user was created in the browser. */
+declare type CompleteSignUpParams = Omit<SignUpParams, "password"> & { idToken: string };
 
 declare interface getUserInfoProps {
   userId: string;

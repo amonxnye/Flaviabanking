@@ -1,8 +1,7 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
 import { z } from 'zod';
-import { createAdminClient } from "../appwrite";
+import { adminDb, COLLECTIONS, serverTimestamp, toDocs } from "../firebase/admin";
 import { parseStringify } from "../utils";
 import { createAuditLog } from "../audit";
 
@@ -19,11 +18,6 @@ const transferSchema = z.object({
 const TRANSFER_MIN_AMOUNT = 1.00;
 const TRANSFER_MAX_AMOUNT = 10000.00;
 
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-  APPWRITE_TRANSACTION_COLLECTION_ID: TRANSACTION_COLLECTION_ID,
-} = process.env;
-
 export const createTransaction = async (transaction: CreateTransactionProps) => {
   try {
     const validated = transferSchema.parse(transaction);
@@ -37,28 +31,26 @@ export const createTransaction = async (transaction: CreateTransactionProps) => 
       throw new Error('Cannot transfer funds to yourself');
     }
 
-    const { database } = await createAdminClient();
+    const data = {
+      channel: 'online',
+      category: 'Transfer',
+      ...validated
+    };
 
-    const newTransaction = await database.createDocument(
-      DATABASE_ID!,
-      TRANSACTION_COLLECTION_ID!,
-      ID.unique(),
-      {
-        channel: 'online',
-        category: 'Transfer',
-        ...validated
-      }
-    )
+    const ref = await adminDb().collection(COLLECTIONS.transactions).add({
+      ...data,
+      createdAt: serverTimestamp(),
+    });
 
     await createAuditLog({
       userId: validated.senderId,
       action: 'transfer.create',
       resourceType: 'transaction',
-      resourceId: newTransaction.$id,
+      resourceId: ref.id,
       metadata: { amount: validated.amount, recipientEmail: validated.email },
     });
 
-    return parseStringify(newTransaction);
+    return parseStringify({ $id: ref.id, $createdAt: new Date().toISOString(), ...data });
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw new Error(`Validation failed: ${error.errors.map(e => e.message).join(', ')}`);
@@ -69,29 +61,16 @@ export const createTransaction = async (transaction: CreateTransactionProps) => 
 
 export const getTransactionsByBankId = async ({bankId}: getTransactionsByBankIdProps) => {
   try {
-    const { database } = await createAdminClient();
+    const col = adminDb().collection(COLLECTIONS.transactions);
 
-    const senderTransactions = await database.listDocuments(
-      DATABASE_ID!,
-      TRANSACTION_COLLECTION_ID!,
-      [Query.equal('senderBankId', bankId)],
-    )
+    const [sent, received] = await Promise.all([
+      col.where('senderBankId', '==', bankId).get(),
+      col.where('receiverBankId', '==', bankId).get(),
+    ]);
 
-    const receiverTransactions = await database.listDocuments(
-      DATABASE_ID!,
-      TRANSACTION_COLLECTION_ID!,
-      [Query.equal('receiverBankId', bankId)],
-    );
+    const documents = [...toDocs(sent), ...toDocs(received)];
 
-    const transactions = {
-      total: senderTransactions.total + receiverTransactions.total,
-      documents: [
-        ...senderTransactions.documents, 
-        ...receiverTransactions.documents,
-      ]
-    }
-
-    return parseStringify(transactions);
+    return parseStringify({ total: documents.length, documents });
   } catch (error) {
     console.log(error);
   }

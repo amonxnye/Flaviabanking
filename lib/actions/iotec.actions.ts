@@ -1,10 +1,10 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { createAdminClient } from "../appwrite";
+import { adminDb, COLLECTIONS, serverTimestamp, toDoc } from "../firebase/admin";
 import { getLoggedInUser } from "./user.actions";
 import { createAuditLog } from "../audit";
 import { parseStringify } from "../utils";
@@ -16,12 +16,9 @@ import {
   type IotecStatus,
 } from "../iotec/client";
 import { normalizeUgandanMsisdn } from "../iotec/phone";
-import { ledgerConfigured, loadWalletForUser, type LedgerDoc } from "../wallet-ledger";
+import { loadWalletForUser, type LedgerDoc } from "../wallet-ledger";
 
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-  APPWRITE_WALLET_TX_COLLECTION_ID: WALLET_TX_COLLECTION_ID,
-} = process.env;
+const ledger = () => adminDb().collection(COLLECTIONS.walletTransactions);
 
 // ioTec collects UGX (no minor units); enforce a sane range.
 const MIN_AMOUNT = 500; // UGX
@@ -67,35 +64,27 @@ export const collectFromUser = async (input: CollectInput) => {
     throw new Error("Enter a valid Ugandan mobile number (e.g. 0772123456).");
   }
 
-  const externalId = ID.unique();
-  const useLedger = ledgerConfigured();
+  const externalId = randomUUID();
   let ledgerDocId: string | null = null;
 
   // 1. Create the Pending row first.
-  if (useLedger) {
-    try {
-      const { database } = await createAdminClient();
-      const doc = await database.createDocument(
-        DATABASE_ID!,
-        WALLET_TX_COLLECTION_ID!,
-        ID.unique(),
-        {
-          userId: loggedIn.$id,
-          iotecTransactionId: "",
-          externalId,
-          amount: parsed.data.amount,
-          currency: "UGX",
-          phone: msisdn,
-          channel: parsed.data.channel,
-          status: "Pending" as IotecStatus,
-          note: parsed.data.note || "",
-          direction: "collection",
-        }
-      );
-      ledgerDocId = doc.$id;
-    } catch (error) {
-      console.error("Failed to create wallet ledger entry:", error);
-    }
+  try {
+    const doc = await ledger().add({
+      userId: loggedIn.$id,
+      iotecTransactionId: "",
+      externalId,
+      amount: parsed.data.amount,
+      currency: "UGX",
+      phone: msisdn,
+      channel: parsed.data.channel,
+      status: "Pending" as IotecStatus,
+      note: parsed.data.note || "",
+      direction: "collection",
+      createdAt: serverTimestamp(),
+    });
+    ledgerDocId = doc.id;
+  } catch (error) {
+    console.error("Failed to create wallet ledger entry:", error);
   }
 
   // 2. Initiate with ioTec. On failure, mark the row Failed and surface it.
@@ -109,15 +98,9 @@ export const collectFromUser = async (input: CollectInput) => {
       payerNote: parsed.data.note,
     });
   } catch (error) {
-    if (useLedger && ledgerDocId) {
+    if (ledgerDocId) {
       try {
-        const { database } = await createAdminClient();
-        await database.updateDocument(
-          DATABASE_ID!,
-          WALLET_TX_COLLECTION_ID!,
-          ledgerDocId,
-          { status: "Failed" as IotecStatus }
-        );
+        await ledger().doc(ledgerDocId).update({ status: "Failed" as IotecStatus });
       } catch (e) {
         console.error("Failed to mark ledger entry failed:", e);
       }
@@ -126,18 +109,12 @@ export const collectFromUser = async (input: CollectInput) => {
   }
 
   // 3. Backfill the ioTec transaction id and its initial status.
-  if (useLedger && ledgerDocId) {
+  if (ledgerDocId) {
     try {
-      const { database } = await createAdminClient();
-      await database.updateDocument(
-        DATABASE_ID!,
-        WALLET_TX_COLLECTION_ID!,
-        ledgerDocId,
-        {
-          iotecTransactionId: txn.id,
-          status: (txn.status as IotecStatus) || "Pending",
-        }
-      );
+      await ledger().doc(ledgerDocId).update({
+        iotecTransactionId: txn.id,
+        status: (txn.status as IotecStatus) || "Pending",
+      });
     } catch (error) {
       console.error("Failed to update wallet ledger entry:", error);
     }
@@ -187,40 +164,26 @@ export async function syncLedgerStatus(
   status: IotecStatus,
   externalId?: string
 ) {
-  if (!ledgerConfigured()) return;
-
   try {
-    const { database } = await createAdminClient();
+    let existing = await ledger()
+      .where("iotecTransactionId", "==", iotecTransactionId)
+      .limit(1)
+      .get();
 
-    let existing = await database.listDocuments(
-      DATABASE_ID!,
-      WALLET_TX_COLLECTION_ID!,
-      [Query.equal("iotecTransactionId", [iotecTransactionId])]
-    );
-
-    if (existing.documents.length === 0 && externalId) {
-      existing = await database.listDocuments(
-        DATABASE_ID!,
-        WALLET_TX_COLLECTION_ID!,
-        [Query.equal("externalId", [externalId])]
-      );
+    if (existing.empty && externalId) {
+      existing = await ledger().where("externalId", "==", externalId).limit(1).get();
     }
 
-    if (existing.documents.length === 0) return;
+    if (existing.empty) return;
 
-    const doc = existing.documents[0] as unknown as LedgerDoc;
+    const doc = toDoc<LedgerDoc>(existing.docs[0])!;
     const patch: Record<string, unknown> = { status };
     // Backfill the id if the row was matched by externalId before it was set.
     if (!doc.iotecTransactionId && iotecTransactionId) {
       patch.iotecTransactionId = iotecTransactionId;
     }
 
-    await database.updateDocument(
-      DATABASE_ID!,
-      WALLET_TX_COLLECTION_ID!,
-      doc.$id,
-      patch
-    );
+    await ledger().doc(doc.$id).update(patch);
     revalidatePath("/wallet");
   } catch (error) {
     console.error("Failed to sync ledger status:", error);

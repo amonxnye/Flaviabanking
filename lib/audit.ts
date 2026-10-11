@@ -1,14 +1,7 @@
 'use server';
 
-import { ID } from "node-appwrite";
-import { createAdminClient } from "./appwrite";
+import { adminDb, COLLECTIONS, serverTimestamp, toDocs } from "./firebase/admin";
 import { parseStringify } from "./utils";
-
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-} = process.env;
-
-const AUDIT_COLLECTION_ID = process.env.APPWRITE_AUDIT_COLLECTION_ID;
 
 export type AuditAction =
   | 'user.login'
@@ -45,54 +38,34 @@ export interface AuditEntry {
 }
 
 export async function createAuditLog(entry: AuditEntry): Promise<void> {
-  if (!AUDIT_COLLECTION_ID || !DATABASE_ID) {
-    console.warn('Audit logging not configured (APPWRITE_AUDIT_COLLECTION_ID missing). Entry:', entry.action);
-    return;
-  }
-
   try {
-    const { database } = await createAdminClient();
-
-    await database.createDocument(
-      DATABASE_ID,
-      AUDIT_COLLECTION_ID,
-      ID.unique(),
-      {
-        userId: entry.userId,
-        action: entry.action,
-        resourceType: entry.resourceType || '',
-        resourceId: entry.resourceId || '',
-        metadata: JSON.stringify(entry.metadata || {}),
-        ipAddress: entry.ipAddress || '',
-        userAgent: entry.userAgent || '',
-        timestamp: new Date().toISOString(),
-      }
-    );
+    await adminDb().collection(COLLECTIONS.auditLogs).add({
+      userId: entry.userId,
+      action: entry.action,
+      resourceType: entry.resourceType || '',
+      resourceId: entry.resourceId || '',
+      metadata: JSON.stringify(entry.metadata || {}),
+      ipAddress: entry.ipAddress || '',
+      userAgent: entry.userAgent || '',
+      timestamp: new Date().toISOString(),
+      createdAt: serverTimestamp(),
+    });
   } catch (error) {
     console.error('Failed to write audit log:', error);
   }
 }
 
 export async function getAuditLogs(userId: string, limit: number = 50) {
-  if (!AUDIT_COLLECTION_ID || !DATABASE_ID) {
-    return { documents: [], total: 0 };
-  }
-
   try {
-    const { Query } = await import("node-appwrite");
-    const { database } = await createAdminClient();
+    const snap = await adminDb()
+      .collection(COLLECTIONS.auditLogs)
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(limit)
+      .get();
 
-    const logs = await database.listDocuments(
-      DATABASE_ID,
-      AUDIT_COLLECTION_ID,
-      [
-        Query.equal('userId', [userId]),
-        Query.orderDesc('$createdAt'),
-        Query.limit(limit),
-      ]
-    );
-
-    return parseStringify(logs);
+    const documents = toDocs(snap);
+    return parseStringify({ documents, total: documents.length });
   } catch (error) {
     console.error('Failed to fetch audit logs:', error);
     return { documents: [], total: 0 };

@@ -8,22 +8,44 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
+import { Form } from "@/components/ui/form"
 import CustomInput from './CustomInput';
 import { authFormSchema } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { getLoggedInUser, signIn, signUp } from '@/lib/actions/user.actions';
+import { signIn, signUp } from '@/lib/actions/user.actions';
 import PlaidLink from './PlaidLink';
+import { getFirebaseAuth } from '@/lib/firebase/client';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+
+// Firebase Auth error codes → messages a customer can act on.
+const friendlyAuthError = (error: unknown): string => {
+  const code = (error as { code?: string })?.code || '';
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-email':
+      return 'Invalid email or password.';
+    case 'auth/email-already-in-use':
+      return 'An account with this email already exists. Please sign in.';
+    case 'auth/weak-password':
+      return 'Password must be at least 6 characters.';
+    case 'auth/too-many-requests':
+      return 'Too many attempts. Please wait a moment and try again.';
+    case 'auth/network-request-failed':
+      return 'Network error. Check your connection and try again.';
+    case 'auth/operation-not-allowed':
+    case 'auth/configuration-not-found':
+      return 'Email/password sign-in is not enabled for this app yet.';
+    default:
+      return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+  }
+};
 
 const AuthForm = ({ type }: { type: string }) => {
   const router = useRouter();
@@ -43,14 +65,20 @@ const AuthForm = ({ type }: { type: string }) => {
     })
    
     // 2. Define a submit handler.
+    // Auth happens in the browser with Firebase; the ID token is then exchanged
+    // for an httpOnly session cookie by a server action. Once the cookie is set
+    // the browser-side Firebase session is no longer needed, so we sign it out.
     const onSubmit = async (data: z.infer<typeof formSchema>) => {
       setIsLoading(true);
       setErrorMessage('');
 
       try {
-        // Sign up with Appwrite & create plaid token
-        
+        const auth = getFirebaseAuth();
+
         if(type === 'sign-up') {
+          const credential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+          const idToken = await credential.user.getIdToken();
+
           const userData = {
             firstName: data.firstName!,
             lastName: data.lastName!,
@@ -61,25 +89,36 @@ const AuthForm = ({ type }: { type: string }) => {
             dateOfBirth: data.dateOfBirth!,
             ssn: data.ssn!,
             email: data.email,
-            password: data.password
+            idToken,
           }
 
           const newUser = await signUp(userData);
+          await signOut(auth);
+
+          if (newUser?.error) {
+            setErrorMessage(newUser.error);
+            return;
+          }
 
           setUser(newUser);
         }
 
         if(type === 'sign-in') {
-          const response = await signIn({
-            email: data.email,
-            password: data.password,
-          })
+          const credential = await signInWithEmailAndPassword(auth, data.email, data.password);
+          const idToken = await credential.user.getIdToken();
+
+          const response = await signIn({ idToken });
+          await signOut(auth);
+
+          if (response?.error) {
+            setErrorMessage(response.error);
+            return;
+          }
 
           if(response) router.push('/')
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
-        setErrorMessage(message);
+        setErrorMessage(friendlyAuthError(error));
       } finally {
         setIsLoading(false);
       }

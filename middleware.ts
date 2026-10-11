@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const PUBLIC_ROUTES = ['/sign-in', '/sign-up', '/api/sentry', '/api/iotec', '/api/agentstudio'];
-const AUTH_ROUTES = ['/sign-in', '/sign-up'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get('appwrite-session');
+  const sessionCookie = request.cookies.get('__session');
   const isAuthenticated = !!sessionCookie?.value;
 
   const response = NextResponse.next();
@@ -37,7 +36,7 @@ export function middleware(request: NextRequest) {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.appwrite.io https://*.plaid.com https://*.dwolla.com https://*.sentry.io",
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.plaid.com https://*.dwolla.com https://*.sentry.io",
       "frame-src https://cdn.plaid.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -46,10 +45,9 @@ export function middleware(request: NextRequest) {
     ].join('; ')
   );
 
-  // Redirect authenticated users away from auth pages
-  if (isAuthenticated && AUTH_ROUTES.some(route => pathname.startsWith(route))) {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
+  // Note: a cookie alone does not prove a valid session, so the auth pages
+  // themselves (not this middleware) redirect users who are really signed in.
+  // Redirecting here on a stale cookie caused a / <-> /sign-in redirect loop.
 
   // Protect all non-public routes
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route));

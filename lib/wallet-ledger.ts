@@ -1,17 +1,11 @@
 import "server-only";
 
-import { Query } from "node-appwrite";
-import { createAdminClient } from "./appwrite";
-
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-  APPWRITE_WALLET_TX_COLLECTION_ID: WALLET_TX_COLLECTION_ID,
-} = process.env;
+import { AggregateField } from "firebase-admin/firestore";
+import { adminDb, COLLECTIONS, toDocs } from "./firebase/admin";
 
 const PAGE_SIZE = 100;
-const MAX_PAGES = 50; // safety cap: up to 5,000 confirmed rows summed
 
-// Shape of a wallet ledger row as stored in Appwrite.
+// Shape of a wallet ledger row as stored in Firestore (walletTransactions).
 export interface LedgerDoc {
   $id: string;
   $createdAt: string;
@@ -43,30 +37,22 @@ export interface WalletSnapshot {
   notConfigured?: boolean;
 }
 
-export function ledgerConfigured(): boolean {
-  return Boolean(DATABASE_ID && WALLET_TX_COLLECTION_ID);
-}
-
 /**
  * Load a user's wallet: recent entries plus a balance summed across ALL
  * confirmed (Success) collections. No session check here — callers must
  * authenticate the user first.
  */
 export async function loadWalletForUser(userId: string): Promise<WalletSnapshot> {
-  if (!ledgerConfigured()) {
-    return { balance: 0, currency: "UGX", transactions: [], notConfigured: true };
-  }
-
   try {
-    const { database } = await createAdminClient();
+    const ledger = adminDb().collection(COLLECTIONS.walletTransactions);
 
-    const recent = await database.listDocuments(
-      DATABASE_ID!,
-      WALLET_TX_COLLECTION_ID!,
-      [Query.equal("userId", [userId]), Query.orderDesc("$createdAt"), Query.limit(PAGE_SIZE)]
-    );
+    const recent = await ledger
+      .where("userId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .limit(PAGE_SIZE)
+      .get();
 
-    const transactions = (recent.documents as unknown as LedgerDoc[]).map((doc) => ({
+    const transactions = toDocs<LedgerDoc>(recent).map((doc) => ({
       id: doc.$id,
       iotecTransactionId: doc.iotecTransactionId,
       amount: doc.amount,
@@ -78,24 +64,14 @@ export async function loadWalletForUser(userId: string): Promise<WalletSnapshot>
       createdAt: doc.$createdAt,
     }));
 
-    let balance = 0;
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const chunk = await database.listDocuments(
-        DATABASE_ID!,
-        WALLET_TX_COLLECTION_ID!,
-        [
-          Query.equal("userId", [userId]),
-          Query.equal("status", ["Success"]),
-          Query.limit(PAGE_SIZE),
-          Query.offset(page * PAGE_SIZE),
-        ]
-      );
-      balance += (chunk.documents as unknown as LedgerDoc[]).reduce(
-        (sum, d) => sum + (Number(d.amount) || 0),
-        0
-      );
-      if (chunk.documents.length < PAGE_SIZE) break;
-    }
+    // Server-side aggregation: one request regardless of row count.
+    const sum = await ledger
+      .where("userId", "==", userId)
+      .where("status", "==", "Success")
+      .aggregate({ total: AggregateField.sum("amount") })
+      .get();
+
+    const balance = Number(sum.data().total) || 0;
 
     return { balance, currency: "UGX", transactions };
   } catch (error) {
