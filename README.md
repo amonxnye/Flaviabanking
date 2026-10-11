@@ -172,9 +172,14 @@ questions by calling **read-only tools** on this app. It cannot move money.
 
 ### Setup
 
-1. Set `STUDIO_URL`, `STUDIO_API_KEY` and `STUDIO_AGENT_ID` (backend only; see `.env.example`).
-2. Register each tool with AgentStudio (`POST /v1/tools`, `kind: "read"`), pointing `url` at
-   `https://<your-domain>/api/agentstudio/tools/<tool_name>`:
+1. Get an API key: apply at `https://agentstudio--ridelinkx.us-east4.hosted.app/apply` (the key is emailed once).
+2. Deploy this app so the tool endpoints are reachable at a public `https://` address.
+3. Register the tools and create the agent in one go (prints each tool's signing secret once):
+   ```bash
+   STUDIO_API_KEY=sk_... APP_URL=https://flaviafintech--silkevents-ug.us-east4.hosted.app npm run agentstudio:setup
+   ```
+   The script is idempotent: an existing tool is kept (use `--recreate` for a new secret) and an
+   existing agent is updated. It registers:
 
    | Tool | Input | Returns |
    |---|---|---|
@@ -182,9 +187,10 @@ questions by calling **read-only tools** on this app. It cannot move money.
    | `list_recent_collections` | `limit` (1-10), `status` (Success/Pending/Failed) | Recent collections, payer phone masked |
    | `get_linked_accounts` | none | Accounts: name, holder, institution, last 4, balance, currency |
 
-3. Save each tool's one-time `signing_secret` as `STUDIO_SECRET_<TOOL_NAME_UPPERCASE>`
-   (e.g. `STUDIO_SECRET_GET_WALLET_BALANCE`).
-4. Create an agent with those `tool_ids` and set its id as `STUDIO_AGENT_ID`.
+4. Store what it prints: `STUDIO_API_KEY` and each `STUDIO_SECRET_<TOOL_NAME>` as secrets
+   (`firebase apphosting:secrets:set <NAME>`), `STUDIO_URL` and `STUDIO_AGENT_ID` as plain values;
+   then uncomment the AgentStudio block in `apphosting.yaml` and redeploy.
+5. Test in the AgentStudio console Playground, then open `/assistant`.
 
 ### Security model
 
