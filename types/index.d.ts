@@ -75,7 +75,6 @@ declare type Transaction = {
   category: string;
   date: string;
   image: string;
-  type: string;
   $createdAt: string;
   channel: string;
   senderBankId: string;
@@ -295,9 +294,12 @@ declare interface getTransactionsByBankIdProps {
 }
 
 declare interface signInProps {
-  email: string;
-  password: string;
+  /** Firebase ID token obtained in the browser after signInWithEmailAndPassword. */
+  idToken: string;
 }
+
+/** Sign-up data sent to the server after the Firebase Auth user was created in the browser. */
+declare type CompleteSignUpParams = Omit<SignUpParams, "password"> & { idToken: string };
 
 declare interface getUserInfoProps {
   userId: string;
@@ -327,4 +329,44 @@ declare interface getBankProps {
 
 declare interface getBankByAccountIdProps {
   accountId: string;
+}
+
+// ========================================
+// Enterprise & Self-Service Types
+// ========================================
+
+declare type PlanTier = 'free' | 'pro' | 'enterprise';
+
+declare type OrgRole = 'owner' | 'admin' | 'member' | 'viewer';
+
+declare interface UserProfile extends User {
+  planTier?: PlanTier;
+  organizationId?: string;
+  role?: OrgRole;
+}
+
+declare interface AuditLogEntry {
+  $id: string;
+  userId: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  metadata: string;
+  ipAddress: string;
+  userAgent: string;
+  timestamp: string;
+  $createdAt: string;
+}
+
+declare interface SettingsPageProps {
+  user: User;
+}
+
+declare interface PricingCardProps {
+  currentPlan: string;
+}
+
+declare interface UsageDashboardProps {
+  connectedBanks: number;
+  currentPlan: string;
 }

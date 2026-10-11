@@ -1,73 +1,68 @@
 'use server';
 
-import { ID, Query } from "node-appwrite";
-import { createAdminClient, createSessionClient } from "../appwrite";
-import { cookies } from "next/headers";
 import { encryptId, extractCustomerIdFromUrl, parseStringify } from "../utils";
 import { CountryCode, ProcessorTokenCreateRequest, ProcessorTokenCreateRequestProcessorEnum, Products } from "plaid";
 
 import { plaidClient } from '@/lib/plaid';
 import { revalidatePath } from "next/cache";
 import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
+import { createAuditLog } from "../audit";
+import { adminAuth, adminDb, COLLECTIONS, serverTimestamp, toDoc, toDocs } from "../firebase/admin";
+import { clearSessionCookie, createSessionCookie, getSessionUid } from "../session";
 
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-  APPWRITE_USER_COLLECTION_ID: USER_COLLECTION_ID,
-  APPWRITE_BANK_COLLECTION_ID: BANK_COLLECTION_ID,
-} = process.env;
-
+// User profile documents live at users/{uid}, so a profile's $id is the
+// Firebase Auth uid. `userId` is stored too for backwards-compatible reads.
 export const getUserInfo = async ({ userId }: getUserInfoProps) => {
   try {
-    const { database } = await createAdminClient();
-
-    const user = await database.listDocuments(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
-    )
-
-    return parseStringify(user.documents[0]);
+    const snap = await adminDb().collection(COLLECTIONS.users).doc(userId).get();
+    const user = toDoc(snap);
+    return user ? parseStringify(user) : null;
   } catch (error) {
     console.log(error)
+    return null;
   }
 }
 
-export const signIn = async ({ email, password }: signInProps) => {
+/**
+ * Called after the browser signed in with Firebase Auth. Verifies the ID token,
+ * checks a profile exists, then stores an httpOnly session cookie.
+ * Errors are returned, not thrown: Next.js masks thrown Server Action messages
+ * in production, which would hide the real cause from the user.
+ */
+export const signIn = async ({ idToken }: signInProps) => {
   try {
-    const { account } = await createAdminClient();
-    const session = await account.createEmailPasswordSession(email, password);
+    const uid = (await adminAuth().verifyIdToken(idToken)).uid;
 
-    cookies().set("appwrite-session", session.secret, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: true,
-    });
+    const user = await getUserInfo({ userId: uid });
+    if (!user) {
+      return { error: 'No profile found for this account. Please sign up again.' };
+    }
 
-    const user = await getUserInfo({ userId: session.userId }) 
+    await createSessionCookie(idToken);
+    await createAuditLog({ userId: uid, action: 'user.login' });
 
     return parseStringify(user);
   } catch (error) {
-    console.error('Error', error);
+    const message = error instanceof Error ? error.message : 'Invalid email or password';
+    return { error: message };
   }
 }
 
-export const signUp = async ({ password, ...userData }: SignUpParams) => {
+/**
+ * Called after the browser created the Firebase Auth user. Creates the Dwolla
+ * customer and the profile document, then starts the session. If anything
+ * fails the just-created auth user is removed so the email can be retried.
+ */
+export const signUp = async ({ idToken, ...userData }: CompleteSignUpParams) => {
   const { email, firstName, lastName } = userData;
-  
-  let newUserAccount;
+  let uid: string | undefined;
 
   try {
-    const { account, database } = await createAdminClient();
-
-    newUserAccount = await account.create(
-      ID.unique(), 
-      email, 
-      password, 
-      `${firstName} ${lastName}`
-    );
-
-    if(!newUserAccount) throw new Error('Error creating user')
+    const decoded = await adminAuth().verifyIdToken(idToken);
+    uid = decoded.uid;
+    if (decoded.email?.toLowerCase() !== email.toLowerCase()) {
+      throw new Error('Email does not match the signed-in account');
+    }
 
     const dwollaCustomerUrl = await createDwollaCustomer({
       ...userData,
@@ -78,41 +73,38 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
 
-    const newUser = await database.createDocument(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      ID.unique(),
-      {
-        ...userData,
-        userId: newUserAccount.$id,
-        dwollaCustomerId,
-        dwollaCustomerUrl
-      }
-    )
+    const profile = {
+      ...userData,
+      userId: uid,
+      name: `${firstName} ${lastName}`,
+      dwollaCustomerId,
+      dwollaCustomerUrl,
+    };
 
-    const session = await account.createEmailPasswordSession(email, password);
-
-    cookies().set("appwrite-session", session.secret, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: true,
+    await adminDb().collection(COLLECTIONS.users).doc(uid).set({
+      ...profile,
+      createdAt: serverTimestamp(),
     });
 
-    return parseStringify(newUser);
+    await createSessionCookie(idToken);
+    await createAuditLog({ userId: uid, action: 'user.signup' });
+
+    return parseStringify({ $id: uid, ...profile });
   } catch (error) {
-    console.error('Error', error);
+    if (uid) {
+      await adminAuth().deleteUser(uid).catch((e) => console.error('Rollback of auth user failed:', e));
+    }
+    const message = error instanceof Error ? error.message : 'Failed to create account';
+    return { error: message };
   }
 }
 
 export async function getLoggedInUser() {
   try {
-    const { account } = await createSessionClient();
-    const result = await account.get();
+    const uid = await getSessionUid();
+    if (!uid) return null;
 
-    const user = await getUserInfo({ userId: result.$id})
-
-    return parseStringify(user);
+    return await getUserInfo({ userId: uid });
   } catch (error) {
     console.log(error)
     return null;
@@ -121,13 +113,16 @@ export async function getLoggedInUser() {
 
 export const logoutAccount = async () => {
   try {
-    const { account } = await createSessionClient();
-
-    cookies().delete('appwrite-session');
-
-    await account.deleteSession('current');
+    const uid = await getSessionUid();
+    if (uid) {
+      await createAuditLog({ userId: uid, action: 'user.logout' });
+      await adminAuth().revokeRefreshTokens(uid);
+    }
+    return true;
   } catch (error) {
-    return null;
+    return true;
+  } finally {
+    clearSessionCookie();
   }
 }
 
@@ -160,23 +155,21 @@ export const createBankAccount = async ({
   shareableId,
 }: createBankAccountProps) => {
   try {
-    const { database } = await createAdminClient();
+    const data = {
+      userId,
+      bankId,
+      accountId,
+      accessToken,
+      fundingSourceUrl,
+      shareableId,
+    };
 
-    const bankAccount = await database.createDocument(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      ID.unique(),
-      {
-        userId,
-        bankId,
-        accountId,
-        accessToken,
-        fundingSourceUrl,
-        shareableId,
-      }
-    )
+    const ref = await adminDb().collection(COLLECTIONS.banks).add({
+      ...data,
+      createdAt: serverTimestamp(),
+    });
 
-    return parseStringify(bankAccount);
+    return parseStringify({ $id: ref.id, ...data });
   } catch (error) {
     console.log(error);
   }
@@ -246,15 +239,12 @@ export const exchangePublicToken = async ({
 
 export const getBanks = async ({ userId }: getBanksProps) => {
   try {
-    const { database } = await createAdminClient();
+    const snap = await adminDb()
+      .collection(COLLECTIONS.banks)
+      .where('userId', '==', userId)
+      .get();
 
-    const banks = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal('userId', [userId])]
-    )
-
-    return parseStringify(banks.documents);
+    return parseStringify(toDocs(snap));
   } catch (error) {
     console.log(error)
   }
@@ -262,15 +252,10 @@ export const getBanks = async ({ userId }: getBanksProps) => {
 
 export const getBank = async ({ documentId }: getBankProps) => {
   try {
-    const { database } = await createAdminClient();
+    const snap = await adminDb().collection(COLLECTIONS.banks).doc(documentId).get();
+    const bank = toDoc(snap);
 
-    const bank = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal('$id', [documentId])]
-    )
-
-    return parseStringify(bank.documents[0]);
+    return bank ? parseStringify(bank) : null;
   } catch (error) {
     console.log(error)
   }
@@ -278,17 +263,15 @@ export const getBank = async ({ documentId }: getBankProps) => {
 
 export const getBankByAccountId = async ({ accountId }: getBankByAccountIdProps) => {
   try {
-    const { database } = await createAdminClient();
+    const snap = await adminDb()
+      .collection(COLLECTIONS.banks)
+      .where('accountId', '==', accountId)
+      .limit(2)
+      .get();
 
-    const bank = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal('accountId', [accountId])]
-    )
+    if(snap.size !== 1) return null;
 
-    if(bank.total !== 1) return null;
-
-    return parseStringify(bank.documents[0]);
+    return parseStringify(toDoc(snap.docs[0]));
   } catch (error) {
     console.log(error)
   }

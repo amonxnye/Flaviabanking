@@ -1,60 +1,76 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
-import { createAdminClient } from "../appwrite";
+import { z } from 'zod';
+import { adminDb, COLLECTIONS, serverTimestamp, toDocs } from "../firebase/admin";
 import { parseStringify } from "../utils";
+import { createAuditLog } from "../audit";
 
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-  APPWRITE_TRANSACTION_COLLECTION_ID: TRANSACTION_COLLECTION_ID,
-} = process.env;
+const transferSchema = z.object({
+  name: z.string().min(1).max(200),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Invalid amount format'),
+  senderId: z.string().min(1),
+  senderBankId: z.string().min(1),
+  receiverId: z.string().min(1),
+  receiverBankId: z.string().min(1),
+  email: z.string().email(),
+});
+
+const TRANSFER_MIN_AMOUNT = 1.00;
+const TRANSFER_MAX_AMOUNT = 10000.00;
 
 export const createTransaction = async (transaction: CreateTransactionProps) => {
   try {
-    const { database } = await createAdminClient();
+    const validated = transferSchema.parse(transaction);
 
-    const newTransaction = await database.createDocument(
-      DATABASE_ID!,
-      TRANSACTION_COLLECTION_ID!,
-      ID.unique(),
-      {
-        channel: 'online',
-        category: 'Transfer',
-        ...transaction
-      }
-    )
+    const amount = parseFloat(validated.amount);
+    if (amount < TRANSFER_MIN_AMOUNT || amount > TRANSFER_MAX_AMOUNT) {
+      throw new Error(`Transfer amount must be between $${TRANSFER_MIN_AMOUNT} and $${TRANSFER_MAX_AMOUNT}`);
+    }
 
-    return parseStringify(newTransaction);
+    if (validated.senderId === validated.receiverId) {
+      throw new Error('Cannot transfer funds to yourself');
+    }
+
+    const data = {
+      channel: 'online',
+      category: 'Transfer',
+      ...validated
+    };
+
+    const ref = await adminDb().collection(COLLECTIONS.transactions).add({
+      ...data,
+      createdAt: serverTimestamp(),
+    });
+
+    await createAuditLog({
+      userId: validated.senderId,
+      action: 'transfer.create',
+      resourceType: 'transaction',
+      resourceId: ref.id,
+      metadata: { amount: validated.amount, recipientEmail: validated.email },
+    });
+
+    return parseStringify({ $id: ref.id, $createdAt: new Date().toISOString(), ...data });
   } catch (error) {
-    console.log(error);
+    if (error instanceof z.ZodError) {
+      throw new Error(`Validation failed: ${error.errors.map(e => e.message).join(', ')}`);
+    }
+    throw error;
   }
 }
 
 export const getTransactionsByBankId = async ({bankId}: getTransactionsByBankIdProps) => {
   try {
-    const { database } = await createAdminClient();
+    const col = adminDb().collection(COLLECTIONS.transactions);
 
-    const senderTransactions = await database.listDocuments(
-      DATABASE_ID!,
-      TRANSACTION_COLLECTION_ID!,
-      [Query.equal('senderBankId', bankId)],
-    )
+    const [sent, received] = await Promise.all([
+      col.where('senderBankId', '==', bankId).get(),
+      col.where('receiverBankId', '==', bankId).get(),
+    ]);
 
-    const receiverTransactions = await database.listDocuments(
-      DATABASE_ID!,
-      TRANSACTION_COLLECTION_ID!,
-      [Query.equal('receiverBankId', bankId)],
-    );
+    const documents = [...toDocs(sent), ...toDocs(received)];
 
-    const transactions = {
-      total: senderTransactions.total + receiverTransactions.total,
-      documents: [
-        ...senderTransactions.documents, 
-        ...receiverTransactions.documents,
-      ]
-    }
-
-    return parseStringify(transactions);
+    return parseStringify({ total: documents.length, documents });
   } catch (error) {
     console.log(error);
   }

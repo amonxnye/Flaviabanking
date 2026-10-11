@@ -1,12 +1,8 @@
 import {withSentryConfig} from '@sentry/nextjs';
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true
-  },
-  eslint: {
-    ignoreDuringBuilds: true
-  }
+  // firebase-admin must be required at runtime, not bundled by webpack.
+  experimental: { serverComponentsExternalPackages: ['firebase-admin'] },
 };
 
 export default withSentryConfig(nextConfig, {
@@ -15,8 +11,8 @@ export default withSentryConfig(nextConfig, {
 
 // Suppresses source map uploading logs during build
 silent: true,
-org: "jsm-x9",
-project: "javascript-nextjs",
+org: process.env.SENTRY_ORG,
+project: process.env.SENTRY_PROJECT,
 }, {
 // For all available options, see:
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/

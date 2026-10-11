@@ -1,0 +1,75 @@
+# Firebase App Hosting configuration (backend: flaviafintech, project: silkevents-ug).
+#
+# Public Firebase web config is set as plain values. Every secret must first be
+# created in Secret Manager, e.g.
+#   firebase apphosting:secrets:set PLAID_SECRET
+# and then uncommented below. A referenced secret that does not exist fails the rollout.
+# The server uses Application Default Credentials (the backend's service account),
+# so FIREBASE_SERVICE_ACCOUNT is NOT needed here.
+
+runConfig:
+  minInstances: 0
+
+env:
+  # --- Firebase (public identifiers) ---
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyAAggFnXvRtHRjZ8GwWVl9LqkSrIcA9jyg
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: silkevents-ug.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: silkevents-ug
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: silkevents-ug.appspot.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "451791274337"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:451791274337:web:f0c3668de6bc0aa2530520
+    availability: [BUILD, RUNTIME]
+
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://flaviafintech--silkevents-ug.us-east4.hosted.app
+    availability: [BUILD, RUNTIME]
+
+  # --- Plaid (non-secret config) ---
+  - variable: PLAID_ENV
+    value: sandbox
+  - variable: PLAID_PRODUCTS
+    value: auth,transactions,identity
+  - variable: PLAID_COUNTRY_CODES
+    value: US,CA
+
+  # --- Dwolla (non-secret config; DWOLLA_ENV is required or the server fails at start-up) ---
+  - variable: DWOLLA_ENV
+    value: sandbox
+  - variable: DWOLLA_BASE_URL
+    value: https://api-sandbox.dwolla.com
+
+  # --- Secrets: create each with `firebase apphosting:secrets:set <NAME>` then uncomment ---
+  # - variable: PLAID_CLIENT_ID
+  #   secret: PLAID_CLIENT_ID
+  # - variable: PLAID_SECRET
+  #   secret: PLAID_SECRET
+  # - variable: DWOLLA_KEY
+  #   secret: DWOLLA_KEY
+  # - variable: DWOLLA_SECRET
+  #   secret: DWOLLA_SECRET
+  # - variable: ID_SIGNING_SECRET          # required in production: openssl rand -hex 32
+  #   secret: ID_SIGNING_SECRET
+  # - variable: IOTEC_CLIENT_ID
+  #   secret: IOTEC_CLIENT_ID
+  # - variable: IOTEC_CLIENT_SECRET
+  #   secret: IOTEC_CLIENT_SECRET
+  # - variable: IOTEC_WALLET_ID
+  #   secret: IOTEC_WALLET_ID
+  # - variable: IOTEC_WEBHOOK_SECRET
+  #   secret: IOTEC_WEBHOOK_SECRET
+  # - variable: STUDIO_API_KEY
+  #   secret: STUDIO_API_KEY
+  # - variable: NEXT_PUBLIC_SENTRY_DSN      # optional: your own Sentry project's DSN
+  #   secret: NEXT_PUBLIC_SENTRY_DSN
+  #   availability: [BUILD, RUNTIME]
