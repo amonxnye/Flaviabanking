@@ -5,13 +5,16 @@ import { adminAuth, adminDb, COLLECTIONS, toDoc, toDocs } from "../firebase/admi
 import { clearSessionCookie, getSessionUid } from "../session";
 import { parseStringify } from "../utils";
 
+const optionalText = (max: number) => z.string().trim().max(max).optional().default('');
+
 const profileUpdateSchema = z.object({
-  firstName: z.string().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
-  lastName: z.string().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
-  address1: z.string().min(5).max(100),
-  city: z.string().min(2).max(50),
-  state: z.string().length(2).regex(/^[A-Z]{2}$/),
-  postalCode: z.string().regex(/^\d{5}(-\d{4})?$/),
+  firstName: z.string().trim().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
+  lastName: z.string().trim().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
+  organization: optionalText(100),
+  address1: optionalText(100),
+  city: optionalText(50),
+  state: optionalText(50),
+  postalCode: optionalText(20),
 });
 
 async function requireSelf(userId: string) {
@@ -22,16 +25,16 @@ async function requireSelf(userId: string) {
   return uid;
 }
 
-async function listUserBanks(userId: string) {
-  const snap = await adminDb().collection(COLLECTIONS.banks).where('userId', '==', userId).get();
+async function listUserAccounts(userId: string) {
+  const snap = await adminDb().collection(COLLECTIONS.accounts).where('userId', '==', userId).get();
   return toDocs<{ userId: string }>(snap);
 }
 
-async function listBankTransactions(bankId: string) {
+async function listAccountTransactions(accountId: string) {
   const col = adminDb().collection(COLLECTIONS.transactions);
   const [sent, received] = await Promise.all([
-    col.where('senderBankId', '==', bankId).get(),
-    col.where('receiverBankId', '==', bankId).get(),
+    col.where('senderBankId', '==', accountId).get(),
+    col.where('receiverBankId', '==', accountId).get(),
   ]);
   return { sent: toDocs(sent), received: toDocs(received) };
 }
@@ -41,10 +44,11 @@ export const updateUserProfile = async (
   data: {
     firstName: string;
     lastName: string;
-    address1: string;
-    city: string;
-    state: string;
-    postalCode: string;
+    organization?: string;
+    address1?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
   }
 ) => {
   try {
@@ -78,11 +82,11 @@ export const exportUserData = async (userId: string) => {
     const profileDoc = toDoc<Record<string, string>>(
       await adminDb().collection(COLLECTIONS.users).doc(userId).get()
     );
-    const banks = await listUserBanks(userId);
+    const banks = await listUserAccounts(userId);
 
     const allTransactions: any[] = [];
     for (const bank of banks) {
-      const { sent, received } = await listBankTransactions(bank.$id);
+      const { sent, received } = await listAccountTransactions(bank.$id);
       allTransactions.push(...sent, ...received);
     }
 
@@ -91,19 +95,21 @@ export const exportUserData = async (userId: string) => {
       profile: profileDoc ? {
         firstName: profileDoc.firstName,
         lastName: profileDoc.lastName,
+        organization: profileDoc.organization,
         email: profileDoc.email,
         address1: profileDoc.address1,
         city: profileDoc.city,
         state: profileDoc.state,
         postalCode: profileDoc.postalCode,
       } : null,
-      connectedBanks: banks.length,
+      accounts: banks.map(b => ({ name: (b as any).name, institution: (b as any).institution, currency: (b as any).currency, balance: (b as any).balance })),
       transactions: allTransactions.map(t => ({
         name: t.name,
         amount: t.amount,
         category: t.category,
         channel: t.channel,
-        email: t.email,
+        from: t.senderBankId,
+        to: t.receiverBankId,
         date: t.$createdAt,
       })),
     };
@@ -120,13 +126,13 @@ export const deleteUserAccount = async (userId: string) => {
     await requireSelf(userId);
 
     const db = adminDb();
-    const banks = await listUserBanks(userId);
+    const banks = await listUserAccounts(userId);
     for (const bank of banks) {
-      const { sent } = await listBankTransactions(bank.$id);
-      for (const txn of sent) {
+      const { sent, received } = await listAccountTransactions(bank.$id);
+      for (const txn of [...sent, ...received]) {
         await db.collection(COLLECTIONS.transactions).doc(txn.$id).delete();
       }
-      await db.collection(COLLECTIONS.banks).doc(bank.$id).delete();
+      await db.collection(COLLECTIONS.accounts).doc(bank.$id).delete();
     }
 
     await db.collection(COLLECTIONS.users).doc(userId).delete();
@@ -137,25 +143,6 @@ export const deleteUserAccount = async (userId: string) => {
     return { success: true };
   } catch (error) {
     console.error('Error deleting account:', error);
-    throw error;
-  }
-};
-
-export const unlinkBankAccount = async (userId: string, bankDocumentId: string) => {
-  try {
-    await requireSelf(userId);
-
-    const ref = adminDb().collection(COLLECTIONS.banks).doc(bankDocumentId);
-    const bankDoc = toDoc<{ userId?: string }>(await ref.get());
-    if (!bankDoc || bankDoc.userId !== userId) {
-      throw new Error('Bank account not found or unauthorized');
-    }
-
-    await ref.delete();
-
-    return { success: true };
-  } catch (error) {
-    console.error('Error unlinking bank account:', error);
     throw error;
   }
 };

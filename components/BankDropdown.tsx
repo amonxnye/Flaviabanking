@@ -17,27 +17,35 @@ import { formUrlQuery, formatAmount } from "@/lib/utils";
 export const BankDropdown = ({
   accounts = [],
   setValue,
+  fieldName = "senderBank",
+  initialId,
   otherStyles,
-}: BankDropdownProps) => {
+}: BankDropdownProps & { initialId?: string }) => {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [selected, setSelected] = useState(accounts[0]);
+  const [selected, setSelected] = useState(
+    accounts.find((a) => a.id === initialId) || accounts[0]
+  );
 
   const handleBankChange = (id: string) => {
-    const account = accounts.find((account) => account.appwriteItemId === id);
+    const account = accounts.find((account) => account.id === id);
     if (!account) return;
 
     setSelected(account);
+
+    if (setValue) {
+      // Inside a form: only update the form field.
+      setValue(fieldName, id);
+      return;
+    }
+
+    // Standalone (e.g. transaction history): drive the page via ?id=.
     const newUrl = formUrlQuery({
       params: searchParams.toString(),
       key: "id",
       value: id,
     });
     router.push(newUrl, { scroll: false });
-
-    if (setValue) {
-      setValue("senderBank", id);
-    }
   };
 
   return (
@@ -62,18 +70,18 @@ export const BankDropdown = ({
       >
         <SelectGroup>
           <SelectLabel className="py-2 font-normal text-gray-500">
-            Select a bank to display
+            Select an account
           </SelectLabel>
           {accounts.map((account: Account) => (
             <SelectItem
               key={account.id}
-              value={account.appwriteItemId}
+              value={account.id}
               className="cursor-pointer border-t"
             >
               <div className="flex flex-col ">
                 <p className="text-16 font-medium">{account.name}</p>
                 <p className="text-14 font-medium text-blue-600">
-                  {formatAmount(account.currentBalance)}
+                  {formatAmount(account.currentBalance, account.currency)}
                 </p>
               </div>
             </SelectItem>

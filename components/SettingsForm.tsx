@@ -25,10 +25,11 @@ import {
 const profileSchema = z.object({
   firstName: z.string().min(2, 'At least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'Invalid characters'),
   lastName: z.string().min(2, 'At least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'Invalid characters'),
-  address1: z.string().min(5, 'At least 5 characters').max(100),
-  city: z.string().min(2).max(50),
-  state: z.string().length(2, 'Use 2-letter code').regex(/^[A-Z]{2}$/, 'Must be uppercase'),
-  postalCode: z.string().regex(/^\d{5}(-\d{4})?$/, 'Invalid postal code'),
+  organization: z.string().max(100, 'Too long'),
+  address1: z.string().max(100, 'Too long'),
+  city: z.string().max(50, 'Too long'),
+  state: z.string().max(50, 'Too long'),
+  postalCode: z.string().max(20, 'Too long'),
 });
 
 const SettingsForm = ({ user }: { user: User }) => {
@@ -44,6 +45,7 @@ const SettingsForm = ({ user }: { user: User }) => {
     defaultValues: {
       firstName: user.firstName || '',
       lastName: user.lastName || '',
+      organization: user.organization || '',
       address1: user.address1 || '',
       city: user.city || '',
       state: user.state || '',
@@ -141,7 +143,7 @@ const SettingsForm = ({ user }: { user: User }) => {
       {activeSection === 'profile' && (
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-1">Edit Profile</h2>
-          <p className="text-sm text-gray-600 mb-6">Update your personal information. Email and SSN cannot be changed.</p>
+          <p className="text-sm text-gray-600 mb-6">Update your personal information. Email cannot be changed.</p>
 
           <div className="mb-6 p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-600">
@@ -168,9 +170,17 @@ const SettingsForm = ({ user }: { user: User }) => {
                 )} />
               </div>
 
+              <FormField control={form.control} name="organization" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Business / organisation (optional)</FormLabel>
+                  <FormControl><Input {...field} placeholder="Leave empty for a personal account" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="address1" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Address (optional)</FormLabel>
                   <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -178,7 +188,7 @@ const SettingsForm = ({ user }: { user: User }) => {
 
               <FormField control={form.control} name="city" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>City</FormLabel>
+                  <FormLabel>City (optional)</FormLabel>
                   <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -187,15 +197,15 @@ const SettingsForm = ({ user }: { user: User }) => {
               <div className="flex gap-4">
                 <FormField control={form.control} name="state" render={({ field }) => (
                   <FormItem className="flex-1">
-                    <FormLabel>State</FormLabel>
-                    <FormControl><Input {...field} placeholder="NY" /></FormControl>
+                    <FormLabel>Region / state (optional)</FormLabel>
+                    <FormControl><Input {...field} placeholder="e.g. Central" /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="postalCode" render={({ field }) => (
                   <FormItem className="flex-1">
-                    <FormLabel>Postal Code</FormLabel>
-                    <FormControl><Input {...field} placeholder="12345" /></FormControl>
+                    <FormLabel>Postal code (optional)</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -217,7 +227,7 @@ const SettingsForm = ({ user }: { user: User }) => {
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-1">Export Your Data</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Download a copy of all your personal data, connected bank info, and transaction history.
+              Download a copy of all your personal data, accounts, and transaction history.
               This is your right under GDPR Article 20 (data portability).
             </p>
             <Button onClick={handleExport} disabled={isLoading} variant="outline" className="border-gray-300">
@@ -239,8 +249,8 @@ const SettingsForm = ({ user }: { user: User }) => {
           <div className="border-t border-gray-200 pt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">Third-Party Services</h2>
             <p className="text-sm text-gray-600">
-              Horizon shares data with Plaid (bank account access) and Dwolla (payment processing)
-              to provide core banking features. No data is sold to third parties.
+              Horizon stores your data in Firebase (Google Cloud) and, if you use the wallet, shares
+              payer phone numbers with ioTec Pay to process mobile-money collections. No data is sold to third parties.
             </p>
           </div>
         </div>

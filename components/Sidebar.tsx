@@ -6,7 +6,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Footer from './Footer'
-import PlaidLink from './PlaidLink'
 
 const Sidebar = ({ user }: SiderbarProps) => {
   const pathname = usePathname();
@@ -52,7 +51,16 @@ const Sidebar = ({ user }: SiderbarProps) => {
           )
         })}
 
-        <PlaidLink user={user} />
+        <Link href="/my-banks" className="add-account-link" aria-label="Add account">
+          <Image
+            src="/icons/connect-bank.svg"
+            alt=""
+            width={24}
+            height={24}
+            aria-hidden="true"
+          />
+          <p className="text-[16px] font-semibold text-black-2">Add account</p>
+        </Link>
       </nav>
 
       <Footer user={user} />

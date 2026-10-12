@@ -2,7 +2,7 @@
 #
 # Public Firebase web config is set as plain values. Every secret must first be
 # created in Secret Manager, e.g.
-#   firebase apphosting:secrets:set PLAID_SECRET
+#   firebase apphosting:secrets:set IOTEC_CLIENT_SECRET
 # and then uncommented below. A referenced secret that does not exist fails the rollout.
 # The server uses Application Default Credentials (the backend's service account),
 # so FIREBASE_SERVICE_ACCOUNT is NOT needed here.
@@ -35,31 +35,7 @@ env:
     value: https://flaviafintech--silkevents-ug.us-east4.hosted.app
     availability: [BUILD, RUNTIME]
 
-  # --- Plaid (non-secret config) ---
-  - variable: PLAID_ENV
-    value: sandbox
-  - variable: PLAID_PRODUCTS
-    value: auth,transactions,identity
-  - variable: PLAID_COUNTRY_CODES
-    value: US,CA
-
-  # --- Dwolla (non-secret config; DWOLLA_ENV is required or the server fails at start-up) ---
-  - variable: DWOLLA_ENV
-    value: sandbox
-  - variable: DWOLLA_BASE_URL
-    value: https://api-sandbox.dwolla.com
-
   # --- Secrets: create each with `firebase apphosting:secrets:set <NAME>` then uncomment ---
-  # - variable: PLAID_CLIENT_ID
-  #   secret: PLAID_CLIENT_ID
-  # - variable: PLAID_SECRET
-  #   secret: PLAID_SECRET
-  # - variable: DWOLLA_KEY
-  #   secret: DWOLLA_KEY
-  # - variable: DWOLLA_SECRET
-  #   secret: DWOLLA_SECRET
-  # - variable: ID_SIGNING_SECRET          # required in production: openssl rand -hex 32
-  #   secret: ID_SIGNING_SECRET
   # - variable: IOTEC_CLIENT_ID
   #   secret: IOTEC_CLIENT_ID
   # - variable: IOTEC_CLIENT_SECRET
@@ -68,8 +44,22 @@ env:
   #   secret: IOTEC_WALLET_ID
   # - variable: IOTEC_WEBHOOK_SECRET
   #   secret: IOTEC_WEBHOOK_SECRET
-  # - variable: STUDIO_API_KEY
-  #   secret: STUDIO_API_KEY
+
+  # --- AI assistant (AgentStudio). All four are needed, plus one signing secret per tool. ---
+  - variable: STUDIO_URL
+    value: https://agentstudio--ridelinkx.us-east4.hosted.app
+  - variable: STUDIO_AGENT_ID            # "Horizon assistant" agent registered by scripts/agentstudio-setup.mjs
+    value: agt_1d4d0b24acf2de007c174a44
+  # The four secrets below MUST exist in Secret Manager before this file is deployed
+  # (firebase apphosting:secrets:set <NAME>), or the rollout fails with "Error resolving secret version".
+  - variable: STUDIO_API_KEY
+    secret: STUDIO_API_KEY
+  - variable: STUDIO_SECRET_GET_WALLET_BALANCE
+    secret: STUDIO_SECRET_GET_WALLET_BALANCE
+  - variable: STUDIO_SECRET_LIST_RECENT_COLLECTIONS
+    secret: STUDIO_SECRET_LIST_RECENT_COLLECTIONS
+  - variable: STUDIO_SECRET_GET_LINKED_ACCOUNTS
+    secret: STUDIO_SECRET_GET_LINKED_ACCOUNTS
   # - variable: NEXT_PUBLIC_SENTRY_DSN      # optional: your own Sentry project's DSN
   #   secret: NEXT_PUBLIC_SENTRY_DSN
   #   availability: [BUILD, RUNTIME]

@@ -3,6 +3,12 @@ import type { NextRequest } from 'next/server';
 
 const PUBLIC_ROUTES = ['/sign-in', '/sign-up', '/api/sentry', '/api/iotec', '/api/agentstudio'];
 
+// Firebase Auth's Google popup loads a helper iframe from the project's
+// authDomain and a script from apis.google.com.
+const FIREBASE_AUTH_DOMAIN = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+  ? `https://${process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}`
+  : '';
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const sessionCookie = request.cookies.get('__session');
@@ -26,18 +32,16 @@ export function middleware(request: NextRequest) {
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
   );
-  // Wildcard hosts cover both Plaid/Dwolla sandbox and production so the CSP
-  // does not silently block real API traffic once PLAID_ENV/DWOLLA_ENV flip.
   response.headers.set(
     'Content-Security-Policy',
     [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.plaid.com",
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.plaid.com https://*.dwolla.com https://*.sentry.io",
-      "frame-src https://cdn.plaid.com",
+      "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.sentry.io",
+      `frame-src ${FIREBASE_AUTH_DOMAIN} https://accounts.google.com`.trim(),
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

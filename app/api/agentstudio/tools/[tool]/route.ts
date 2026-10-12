@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { verifyStudioSignature } from "@/lib/agentstudio/security";
 import { loadWalletForUser } from "@/lib/wallet-ledger";
-import { getAccounts } from "@/lib/actions/bank.actions";
+import { getAccounts } from "@/lib/actions/account.actions";
 
 /**
  * Tool endpoints called BY AgentStudio on behalf of a signed-in customer.
@@ -70,11 +70,12 @@ const TOOLS: Record<string, Handler> = {
       count: data.length,
       accounts: data.map((a) => ({
         name: a.name,
+        holder: a.holder || "own",
+        institution: a.institution,
         type: a.type,
         last4: a.mask,
-        availableBalance: a.availableBalance,
         currentBalance: a.currentBalance,
-        currency: "USD",
+        currency: a.currency,
       })),
     };
   },
