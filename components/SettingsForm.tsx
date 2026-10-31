@@ -56,10 +56,10 @@ const SettingsForm = ({ user }: { user: User }) => {
     setMessage(null);
     try {
       await updateUserProfile(user.userId, data);
-      setMessage({ type: 'success', text: 'Profile updated successfully.' });
+      setMessage({ type: 'success', text: 'Profile saved' });
       router.refresh();
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to update profile.' });
+      setMessage({ type: 'error', text: error.message || 'Could not save your profile. Try again.' });
     }
     setIsLoading(false);
   };
@@ -76,9 +76,9 @@ const SettingsForm = ({ user }: { user: User }) => {
       a.download = `horizon-data-export-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      setMessage({ type: 'success', text: 'Data exported successfully.' });
+      setMessage({ type: 'success', text: 'Your data was downloaded' });
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to export data.' });
+      setMessage({ type: 'error', text: error.message || 'Could not export your data. Try again.' });
     }
     setIsLoading(false);
   };
@@ -91,29 +91,32 @@ const SettingsForm = ({ user }: { user: User }) => {
       await deleteUserAccount(user.userId);
       router.push('/sign-in');
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to delete account.' });
+      setMessage({ type: 'error', text: error.message || 'Could not delete your account. Try again.' });
       setIsLoading(false);
     }
   };
 
   const sections = [
     { key: 'profile' as const, label: 'Profile' },
-    { key: 'data' as const, label: 'Data & Privacy' },
-    { key: 'danger' as const, label: 'Danger Zone' },
+    { key: 'data' as const, label: 'Data and privacy' },
+    { key: 'danger' as const, label: 'Delete account' },
   ];
 
+  const sectionTitle = "text-16 font-medium text-ink";
+  const sectionText = "text-14 text-ink-2";
+
   return (
-    <div className="mt-8">
-      {/* Section tabs */}
-      <nav className="flex gap-2 mb-8 border-b border-gray-200" aria-label="Settings sections">
+    <div className="flex max-w-[720px] flex-col gap-6">
+      <nav className="flex gap-6 border-b border-line" role="tablist" aria-label="Settings sections">
         {sections.map((s) => (
           <button
             key={s.key}
+            type="button"
             onClick={() => { setActiveSection(s.key); setMessage(null); }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`-mb-px h-10 border-b-2 text-14 transition-colors ${
               activeSection === s.key
-                ? 'border-blue-600 text-blue-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-brand font-medium text-ink'
+                : 'border-transparent text-ink-3 hover:text-ink'
             }`}
             aria-selected={activeSection === s.key}
             role="tab"
@@ -123,182 +126,182 @@ const SettingsForm = ({ user }: { user: User }) => {
         ))}
       </nav>
 
-      {/* Feedback message */}
       {message && (
         <div
           role="alert"
-          className={`p-4 rounded-lg mb-6 text-sm font-medium ${
+          className={`notice ${
             message.type === 'success'
-              ? 'bg-green-50 text-green-800 border border-green-200'
-              : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-positive-soft text-positive'
+              : 'bg-negative-soft text-negative'
           }`}
         >
           {message.text}
         </div>
       )}
 
-      {/* Profile Section */}
       {activeSection === 'profile' && (
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-1">Edit Profile</h2>
-          <p className="text-sm text-gray-600 mb-6">Update your personal information. Email and SSN cannot be changed.</p>
+        <section className="card flex flex-col gap-6 p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className={sectionTitle}>Profile</h2>
+            <p className={sectionText}>Your email and SSN cannot be changed here</p>
+          </div>
 
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">
-              <span className="font-medium text-gray-700">Email:</span> {user.email}
-            </p>
+          <div className="flex flex-col gap-1 rounded-lg bg-subtle px-4 py-3">
+            <p className="text-12 text-ink-3">Email</p>
+            <p className="text-14 text-ink">{user.email}</p>
           </div>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onProfileSubmit)} className="space-y-5">
-              <div className="flex gap-4">
+            <form onSubmit={form.handleSubmit(onProfileSubmit)} className="flex flex-col gap-5">
+              <div className="flex flex-col gap-5 sm:flex-row sm:gap-4">
                 <FormField control={form.control} name="firstName" render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
+                  <FormItem className="flex-1 flex flex-col gap-2 space-y-0">
+                    <FormLabel className="form-label">First name</FormLabel>
+                    <FormControl><Input className="input-class" {...field} /></FormControl>
+                    <FormMessage className="form-message" />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="lastName" render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
+                  <FormItem className="flex-1 flex flex-col gap-2 space-y-0">
+                    <FormLabel className="form-label">Last name</FormLabel>
+                    <FormControl><Input className="input-class" {...field} /></FormControl>
+                    <FormMessage className="form-message" />
                   </FormItem>
                 )} />
               </div>
 
               <FormField control={form.control} name="address1" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Address</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                  <FormItem className="flex flex-col gap-2 space-y-0">
+                    <FormLabel className="form-label">Address</FormLabel>
+                    <FormControl><Input className="input-class" {...field} /></FormControl>
+                    <FormMessage className="form-message" />
+                  </FormItem>
+                )} />
 
               <FormField control={form.control} name="city" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>City</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+                  <FormItem className="flex flex-col gap-2 space-y-0">
+                    <FormLabel className="form-label">City</FormLabel>
+                    <FormControl><Input className="input-class" {...field} /></FormControl>
+                    <FormMessage className="form-message" />
+                  </FormItem>
+                )} />
 
               <div className="flex gap-4">
                 <FormField control={form.control} name="state" render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>State</FormLabel>
-                    <FormControl><Input {...field} placeholder="NY" /></FormControl>
-                    <FormMessage />
+                  <FormItem className="flex-1 flex flex-col gap-2 space-y-0">
+                    <FormLabel className="form-label">State</FormLabel>
+                    <FormControl><Input className="input-class" {...field} placeholder="NY" /></FormControl>
+                    <FormMessage className="form-message" />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="postalCode" render={({ field }) => (
-                  <FormItem className="flex-1">
-                    <FormLabel>Postal Code</FormLabel>
-                    <FormControl><Input {...field} placeholder="12345" /></FormControl>
-                    <FormMessage />
+                  <FormItem className="flex-1 flex flex-col gap-2 space-y-0">
+                    <FormLabel className="form-label">Postal code</FormLabel>
+                    <FormControl><Input className="input-class" {...field} placeholder="10001" /></FormControl>
+                    <FormMessage className="form-message" />
                   </FormItem>
                 )} />
               </div>
 
-              <Button type="submit" disabled={isLoading} className="form-btn mt-4">
-                {isLoading ? (
-                  <><Loader2 size={20} className="animate-spin" />&nbsp;Saving...</>
-                ) : 'Save Changes'}
-              </Button>
+              <div className="flex justify-end border-t border-line pt-5">
+                <Button type="submit" disabled={isLoading} className="btn-primary">
+                  {isLoading ? (
+                    <><Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />Saving…</>
+                  ) : 'Save changes'}
+                </Button>
+              </div>
             </form>
           </Form>
-        </div>
+        </section>
       )}
 
-      {/* Data & Privacy Section */}
       {activeSection === 'data' && (
-        <div className="space-y-8">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Export Your Data</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Download a copy of all your personal data, connected bank info, and transaction history.
+        <section className="card flex flex-col divide-y divide-line">
+          <div className="flex flex-col gap-3 p-6">
+            <h2 className={sectionTitle}>Export your data</h2>
+            <p className={sectionText}>
+              Download a copy of your personal data, connected bank details and transaction history.
               This is your right under GDPR Article 20 (data portability).
             </p>
-            <Button onClick={handleExport} disabled={isLoading} variant="outline" className="border-gray-300">
+            <Button onClick={handleExport} disabled={isLoading} variant="outline" className="btn-secondary h-10 w-fit">
               {isLoading ? (
-                <><Loader2 size={16} className="animate-spin" />&nbsp;Exporting...</>
-              ) : 'Download My Data (JSON)'}
+                <><Loader2 size={16} className="animate-spin" aria-hidden="true" />Exporting…</>
+              ) : 'Download my data (JSON)'}
             </Button>
           </div>
 
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Data Retention</h2>
-            <p className="text-sm text-gray-600">
-              We retain your transaction data for 7 years as required by financial regulations.
-              Personal profile data is kept as long as your account is active. You can request
-              full deletion at any time from the Danger Zone section.
+          <div className="flex flex-col gap-1 p-6">
+            <h2 className={sectionTitle}>Data retention</h2>
+            <p className={sectionText}>
+              We keep transaction data for 7 years, as financial regulations require.
+              Profile data is kept while your account is active. You can ask for full deletion
+              at any time under Delete account.
             </p>
           </div>
 
-          <div className="border-t border-gray-200 pt-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-1">Third-Party Services</h2>
-            <p className="text-sm text-gray-600">
+          <div className="flex flex-col gap-1 p-6">
+            <h2 className={sectionTitle}>Third-party services</h2>
+            <p className={sectionText}>
               Horizon shares data with Plaid (bank account access) and Dwolla (payment processing)
-              to provide core banking features. No data is sold to third parties.
+              to provide its banking features. No data is sold to third parties.
             </p>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Danger Zone */}
       {activeSection === 'danger' && (
-        <div>
-          <div className="border border-red-200 rounded-lg p-6 bg-red-50">
-            <h2 className="text-lg font-semibold text-red-900 mb-1">Delete Account</h2>
-            <p className="text-sm text-red-700 mb-4">
-              This action is permanent and cannot be undone. All your data, connected bank accounts,
-              and transaction history will be permanently deleted (GDPR Article 17).
+        <section className="card flex flex-col gap-4 border-negative/30 p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className={sectionTitle}>Delete account</h2>
+            <p className={sectionText}>
+              This is permanent and cannot be undone. Your data, connected bank accounts
+              and transaction history will be deleted (GDPR Article 17).
             </p>
-
-            {!showDeleteConfirm ? (
-              <Button
-                onClick={() => setShowDeleteConfirm(true)}
-                variant="outline"
-                className="border-red-300 text-red-700 hover:bg-red-100"
-              >
-                Delete My Account
-              </Button>
-            ) : (
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="delete-confirm" className="block text-sm font-medium text-red-800 mb-1">
-                    Type DELETE to confirm
-                  </label>
-                  <Input
-                    id="delete-confirm"
-                    value={deleteConfirmText}
-                    onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    placeholder="DELETE"
-                    className="max-w-xs border-red-300"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleDelete}
-                    disabled={deleteConfirmText !== 'DELETE' || isLoading}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    {isLoading ? (
-                      <><Loader2 size={16} className="animate-spin" />&nbsp;Deleting...</>
-                    ) : 'Permanently Delete Account'}
-                  </Button>
-                  <Button
-                    onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
-                    variant="outline"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+
+          {!showDeleteConfirm ? (
+            <Button
+              onClick={() => setShowDeleteConfirm(true)}
+              variant="outline"
+              className="h-10 w-fit rounded-lg border-negative/40 text-14 font-medium text-negative hover:bg-negative-soft hover:text-negative"
+            >
+              Delete my account
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label htmlFor="delete-confirm" className="form-label">
+                  Type DELETE to confirm
+                </label>
+                <Input
+                  id="delete-confirm"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="DELETE"
+                  className="input-class figure max-w-xs"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleDelete}
+                  disabled={deleteConfirmText !== 'DELETE' || isLoading}
+                  className="h-10 rounded-lg bg-negative px-4 text-14 font-medium text-white hover:bg-negative/90"
+                >
+                  {isLoading ? (
+                    <><Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />Deleting…</>
+                  ) : 'Permanently delete account'}
+                </Button>
+                <Button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                  variant="outline"
+                  className="btn-secondary h-10"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

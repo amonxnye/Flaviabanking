@@ -8,15 +8,13 @@ const Settings = async () => {
   if (!loggedIn) return null;
 
   return (
-    <section className="settings">
-      <div className="mx-auto max-w-3xl w-full p-6">
-        <HeaderBox
-          title="Settings"
-          subtext="Manage your profile, security, and account preferences."
-        />
+    <section className="page">
+      <HeaderBox
+        title="Settings"
+        subtext="Your profile, your data and your account"
+      />
 
-        <SettingsForm user={loggedIn} />
-      </div>
+      <SettingsForm user={loggedIn} />
     </section>
   );
 };

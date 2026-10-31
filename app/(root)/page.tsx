@@ -23,13 +23,11 @@ const Home = async ({ searchParams: { id, page } }: SearchParamProps) => {
 
   return (
     <section className="home">
-      <div className="home-content">
-        <header className="home-header">
+      <div className="page min-w-0 flex-1">
+        <header className="flex flex-col gap-6">
           <HeaderBox 
-            type="greeting"
-            title="Welcome"
-            user={loggedIn?.firstName || 'Guest'}
-            subtext="Access and manage your account and transactions efficiently."
+            title="Overview"
+            subtext="Balances and recent activity across your linked banks"
           />
 
           <TotalBalanceBox 

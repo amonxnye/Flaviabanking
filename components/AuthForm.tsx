@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image'
 import Link from 'next/link'
 import React, { useState } from 'react'
 
@@ -15,6 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { signIn, signUp } from '@/lib/actions/user.actions';
 import PlaidLink from './PlaidLink';
+import Logo from './Logo';
 import { getFirebaseAuth } from '@/lib/firebase/client';
 import {
   createUserWithEmailAndPassword,
@@ -124,35 +124,24 @@ const AuthForm = ({ type }: { type: string }) => {
       }
     }
 
+  const title = user ? 'Link a bank' : type === 'sign-in' ? 'Sign in' : 'Create your account';
+  const subtitle = user
+    ? 'Connect your first bank to see balances and send transfers'
+    : type === 'sign-in'
+      ? 'Use the email and password for your Horizon account'
+      : 'We use these details to verify you for bank transfers';
+
   return (
     <section className="auth-form">
-      <header className='flex flex-col gap-5 md:gap-8'>
-          <Link href="/" className="cursor-pointer flex items-center gap-1">
-            <Image 
-              src="/icons/logo.svg"
-              width={34}
-              height={34}
-              alt="Horizon logo"
-            />
-            <h1 className="text-26 font-ibm-plex-serif font-bold text-black-1">Horizon</h1>
-          </Link>
+      <header className="flex flex-col gap-8">
+        <Link href="/" className="w-fit" aria-label="Horizon home">
+          <Logo />
+        </Link>
 
-          <div className="flex flex-col gap-1 md:gap-3">
-            <h1 className="text-24 lg:text-36 font-semibold text-gray-900">
-              {user 
-                ? 'Link Account'
-                : type === 'sign-in'
-                  ? 'Sign In'
-                  : 'Sign Up'
-              }
-              <p className="text-16 font-normal text-gray-600">
-                {user 
-                  ? 'Link your account to get started'
-                  : 'Please enter your details'
-                }
-              </p>  
-            </h1>
-          </div>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-24 font-medium text-ink">{title}</h1>
+          <p className="text-14 text-ink-2">{subtitle}</p>
+        </div>
       </header>
       {user ? (
         <div className="flex flex-col gap-4">
@@ -161,58 +150,56 @@ const AuthForm = ({ type }: { type: string }) => {
       ): (
         <>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
               {type === 'sign-up' && (
                 <>
                   <div className="flex gap-4">
-                    <CustomInput control={form.control} name='firstName' label="First Name" placeholder='Enter your first name' />
-                    <CustomInput control={form.control} name='lastName' label="Last Name" placeholder='Enter your first name' />
+                    <CustomInput control={form.control} name='firstName' label="First name" placeholder='Amara' />
+                    <CustomInput control={form.control} name='lastName' label="Last name" placeholder='Nakato' />
                   </div>
-                  <CustomInput control={form.control} name='address1' label="Address" placeholder='Enter your specific address' />
-                  <CustomInput control={form.control} name='city' label="City" placeholder='Enter your city' />
+                  <CustomInput control={form.control} name='address1' label="Address" placeholder='Street and number' />
+                  <CustomInput control={form.control} name='city' label="City" placeholder='New York' />
                   <div className="flex gap-4">
-                    <CustomInput control={form.control} name='state' label="State" placeholder='Example: NY' />
-                    <CustomInput control={form.control} name='postalCode' label="Postal Code" placeholder='Example: 11101' />
+                    <CustomInput control={form.control} name='state' label="State" placeholder='NY' />
+                    <CustomInput control={form.control} name='postalCode' label="Postal code" placeholder='11101' />
                   </div>
                   <div className="flex gap-4">
-                    <CustomInput control={form.control} name='dateOfBirth' label="Date of Birth" placeholder='YYYY-MM-DD' />
-                    <CustomInput control={form.control} name='ssn' label="SSN" placeholder='Example: 1234' />
+                    <CustomInput control={form.control} name='dateOfBirth' label="Date of birth" placeholder='YYYY-MM-DD' />
+                    <CustomInput control={form.control} name='ssn' label="SSN, last 4 digits" placeholder='1234' />
                   </div>
                 </>
               )}
 
-              <CustomInput control={form.control} name='email' label="Email" placeholder='Enter your email' />
+              <CustomInput control={form.control} name='email' label="Email" placeholder='name@company.com' />
 
-              <CustomInput control={form.control} name='password' label="Password" placeholder='Enter your password' />
+              <CustomInput control={form.control} name='password' label="Password" placeholder={type === 'sign-in' ? 'Your password' : 'At least 8 characters'} />
 
               {errorMessage && (
-                <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600" role="alert">
+                <div className="notice bg-negative-soft text-negative" role="alert">
                   {errorMessage}
                 </div>
               )}
 
-              <div className="flex flex-col gap-4">
-                <Button type="submit" disabled={isLoading} className="form-btn">
-                  {isLoading ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" /> &nbsp;
-                      Loading...
-                    </>
-                  ) : type === 'sign-in' 
-                    ? 'Sign In' : 'Sign Up'}
-                </Button>
-              </div>
+              <Button type="submit" disabled={isLoading} className="btn-primary mt-1 w-full">
+                {isLoading ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />
+                    {type === 'sign-in' ? 'Signing in…' : 'Creating account…'}
+                  </>
+                ) : type === 'sign-in'
+                  ? 'Sign in' : 'Create account'}
+              </Button>
             </form>
           </Form>
 
-          <footer className="flex justify-center gap-1">
-            <p className="text-14 font-normal text-gray-600">
+          <footer className="flex justify-center gap-1 text-14">
+            <p className="text-ink-2">
               {type === 'sign-in'
-              ? "Don't have an account?"
+              ? "No account yet?"
               : "Already have an account?"}
             </p>
             <Link href={type === 'sign-in' ? '/sign-up' : '/sign-in'} className="form-link">
-              {type === 'sign-in' ? 'Sign up' : 'Sign in'}
+              {type === 'sign-in' ? 'Create one' : 'Sign in'}
             </Link>
           </footer>
         </>
