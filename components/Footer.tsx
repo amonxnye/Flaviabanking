@@ -1,10 +1,11 @@
 import { logoutAccount } from '@/lib/actions/user.actions'
-import Image from 'next/image'
+import { LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import React from 'react'
 
 const Footer = ({ user, type = 'desktop' }: FooterProps) => {
   const router = useRouter();
+  const desktop = type !== 'mobile';
 
   const handleLogOut = async () => {
     const loggedOut = await logoutAccount();
@@ -13,29 +14,27 @@ const Footer = ({ user, type = 'desktop' }: FooterProps) => {
   }
 
   return (
-    <footer className="footer">
-      <div className={type === 'mobile' ? 'footer_name-mobile' : 'footer_name'}>
-        <p className="text-xl font-bold text-gray-700">
-          {user?.firstName?.[0]}
+    <footer className={`flex items-center gap-2.5 border-t border-line pt-4 ${desktop ? 'max-xl:flex-col' : ''}`}>
+      <div className="flex-center size-8 shrink-0 rounded-full bg-subtle text-13 font-medium text-ink-2" aria-hidden="true">
+        {user?.firstName?.[0]}
+      </div>
+
+      <div className={desktop ? 'flex min-w-0 flex-1 flex-col max-xl:hidden' : 'flex min-w-0 flex-1 flex-col'}>
+        <p className="truncate text-14 font-medium text-ink">
+          {user?.firstName}
+        </p>
+        <p className="truncate text-12 text-ink-3">
+          {user?.email}
         </p>
       </div>
 
-      <div className={type === 'mobile' ? 'footer_email-mobile' : 'footer_email'}>
-          <h1 className="text-14 truncate text-gray-700 font-semibold">
-            {user?.firstName}
-          </h1>
-          <p className="text-14 truncate font-normal text-gray-600">
-            {user?.email}
-          </p>
-      </div>
-
       <button
-        className="footer_image cursor-pointer border-0 bg-transparent"
+        className="flex-center size-8 shrink-0 rounded-lg text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
         onClick={handleLogOut}
         aria-label="Log out"
         type="button"
       >
-        <Image src="/icons/logout.svg" fill alt="" aria-hidden="true" />
+        <LogOut size={18} strokeWidth={1.5} aria-hidden="true" />
       </button>
     </footer>
   )

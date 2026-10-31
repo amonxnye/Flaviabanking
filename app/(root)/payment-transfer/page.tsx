@@ -2,7 +2,6 @@ import HeaderBox from '@/components/HeaderBox'
 import PaymentTransferForm from '@/components/PaymentTransferForm'
 import { getAccounts } from '@/lib/actions/bank.actions';
 import { getLoggedInUser } from '@/lib/actions/user.actions';
-import React from 'react'
 
 const Transfer = async () => {
   const loggedIn = await getLoggedInUser();
@@ -17,15 +16,13 @@ const Transfer = async () => {
   const accountsData = accounts?.data;
 
   return (
-    <section className="payment-transfer">
+    <section className="page">
       <HeaderBox 
-        title="Payment Transfer"
-        subtext="Please provide any specific details or notes related to the payment transfer"
+        title="Transfer funds"
+        subtext="Send an ACH transfer from one of your linked banks to another Horizon user"
       />
 
-      <section className="size-full pt-5">
-        <PaymentTransferForm accounts={accountsData} />
-      </section>
+      <PaymentTransferForm accounts={accountsData} />
     </section>
   )
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
 import { formUrlQuery } from "@/lib/utils";
+
+const navButton = "flex h-9 items-center gap-1.5 rounded-lg px-3 text-14 text-ink-2 transition-colors hover:bg-subtle hover:text-ink disabled:pointer-events-none disabled:opacity-40";
 
 export const Pagination = ({ page, totalPages }: PaginationProps) => {
   const router = useRouter();
@@ -23,42 +24,28 @@ export const Pagination = ({ page, totalPages }: PaginationProps) => {
   };
 
   return (
-    <div className="flex justify-between gap-3">
-      <Button
-        size="lg"
-        variant="ghost"
-        className="p-0 hover:bg-transparent"
+    <nav className="flex items-center justify-between gap-3" aria-label="Pagination">
+      <button
+        type="button"
+        className={navButton}
         onClick={() => handleNavigation("prev")}
         disabled={Number(page) <= 1}
       >
-        <Image
-          src="/icons/arrow-left.svg"
-          alt="arrow"
-          width={20}
-          height={20}
-          className="mr-2"
-        />
-        Prev
-      </Button>
-      <p className="text-14 flex items-center px-2">
-        {page} / {totalPages}
+        <ChevronLeft size={16} strokeWidth={1.5} aria-hidden="true" />
+        Previous
+      </button>
+      <p className="figure text-13 text-ink-3">
+        {page} of {totalPages}
       </p>
-      <Button
-        size="lg"
-        variant="ghost"
-        className="p-0 hover:bg-transparent"
+      <button
+        type="button"
+        className={navButton}
         onClick={() => handleNavigation("next")}
         disabled={Number(page) >= totalPages}
       >
         Next
-        <Image
-          src="/icons/arrow-left.svg"
-          alt="arrow"
-          width={20}
-          height={20}
-          className="ml-2 -scale-x-100"
-        />
-      </Button>
-    </div>
+        <ChevronRight size={16} strokeWidth={1.5} aria-hidden="true" />
+      </button>
+    </nav>
   );
 };

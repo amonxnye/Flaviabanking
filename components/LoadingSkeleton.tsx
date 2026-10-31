@@ -1,36 +1,41 @@
+const Bar = ({ className }: { className: string }) => <div className={`rounded-md bg-subtle ${className}`} />;
+
+export function PageHeaderSkeleton() {
+  return (
+    <div className="flex flex-col gap-2">
+      <Bar className="h-8 w-48" />
+      <Bar className="h-5 w-80 max-w-full" />
+    </div>
+  );
+}
+
 export function DashboardSkeleton() {
   return (
-    <div className="home" role="status" aria-label="Loading dashboard">
-      <div className="home-content">
-        <header className="home-header">
-          <div className="animate-pulse space-y-3">
-            <div className="h-8 bg-gray-200 rounded w-64" />
-            <div className="h-5 bg-gray-200 rounded w-96" />
-          </div>
-          <div className="animate-pulse mt-6">
-            <div className="h-32 bg-gray-200 rounded-xl w-full" />
-          </div>
-        </header>
-        <div className="animate-pulse mt-8 space-y-4">
-          <div className="h-6 bg-gray-200 rounded w-48" />
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-12 bg-gray-200 rounded w-full" />
-          ))}
+    <div className="home" role="status" aria-label="Loading overview">
+      <div className="page min-w-0 flex-1 animate-pulse">
+        <PageHeaderSkeleton />
+        <div className="card h-40" />
+        <div className="flex flex-col gap-4">
+          <Bar className="h-7 w-48" />
+          <div className="card h-[360px]" />
         </div>
       </div>
-      <span className="sr-only">Loading...</span>
+      <span className="sr-only">Loading…</span>
     </div>
   );
 }
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="animate-pulse space-y-3" role="status" aria-label="Loading transactions">
-      <div className="h-10 bg-gray-200 rounded w-full" />
+    <div className="card animate-pulse overflow-hidden" role="status" aria-label="Loading transactions">
+      <div className="h-10 border-b border-line" />
       {[...Array(rows)].map((_, i) => (
-        <div key={i} className="h-12 bg-gray-100 rounded w-full" />
+        <div key={i} className="flex h-14 items-center gap-6 border-b border-line px-4 last:border-0">
+          <Bar className="h-4 w-40" />
+          <Bar className="ml-auto h-4 w-20" />
+        </div>
       ))}
-      <span className="sr-only">Loading...</span>
+      <span className="sr-only">Loading…</span>
     </div>
   );
 }
@@ -38,8 +43,8 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
 export function BankCardSkeleton() {
   return (
     <div className="animate-pulse" role="status" aria-label="Loading bank card">
-      <div className="h-48 bg-gray-200 rounded-xl w-[320px]" />
-      <span className="sr-only">Loading...</span>
+      <div className="aspect-[1.586/1] w-full max-w-[340px] rounded-2xl bg-subtle" />
+      <span className="sr-only">Loading…</span>
     </div>
   );
 }

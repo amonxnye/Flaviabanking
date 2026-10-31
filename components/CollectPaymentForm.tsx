@@ -60,7 +60,7 @@ const CollectPaymentForm = () => {
         const result = await checkCollectionStatus(transactionId);
         if (result.settled) {
           setPhase('success');
-          setStatusText('Payment received and added to your wallet.');
+          setStatusText('Payment received and added to your wallet');
           router.refresh();
           return;
         }
@@ -100,87 +100,87 @@ const CollectPaymentForm = () => {
   const busy = phase === 'submitting' || phase === 'pending';
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6">
-      <h2 className="text-18 font-semibold text-gray-900">Collect a payment</h2>
-      <p className="mt-1 text-14 text-gray-600">
-        Send a mobile-money request. The customer approves it on their phone and the funds land in your wallet.
+    <div className="card p-6">
+      <h2 className="text-16 font-medium text-ink">Collect a payment</h2>
+      <p className="mt-1 text-14 text-ink-2">
+        Send a mobile-money request. The customer approves it on their phone and the money lands in your wallet.
       </p>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-5">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 flex flex-col gap-5">
           <FormField control={form.control} name="phone" render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-14 font-medium text-gray-700">Customer phone number</FormLabel>
+              <FormLabel className="form-label">Customer phone number</FormLabel>
               <FormControl>
-                <Input placeholder="0772123456" className="input-class" {...field} />
+                <Input type="tel" placeholder="0772 123456" className="input-class figure" {...field} />
               </FormControl>
-              <FormMessage className="text-12 text-red-500" />
+              <FormMessage className="form-message" />
             </FormItem>
           )} />
 
           <div className="flex gap-4">
             <FormField control={form.control} name="amount" render={({ field }) => (
               <FormItem className="flex-1">
-                <FormLabel className="text-14 font-medium text-gray-700">Amount (UGX)</FormLabel>
+                <FormLabel className="form-label">Amount (UGX)</FormLabel>
                 <FormControl>
-                  <Input type="number" inputMode="numeric" placeholder="10000" className="input-class" {...field} />
+                  <Input type="number" inputMode="numeric" placeholder="10000" className="input-class figure" {...field} />
                 </FormControl>
-                <FormMessage className="text-12 text-red-500" />
+                <FormMessage className="form-message" />
               </FormItem>
             )} />
 
             <FormField control={form.control} name="channel" render={({ field }) => (
               <FormItem className="flex-1">
-                <FormLabel className="text-14 font-medium text-gray-700">Network</FormLabel>
+                <FormLabel className="form-label">Network</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <FormControl>
-                    <SelectTrigger className="input-class bg-white">
-                      {field.value}
+                    <SelectTrigger className="input-class">
+                      {field.value === 'Mtn' ? 'MTN' : field.value}
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent className="bg-white">
+                  <SelectContent className="rounded-lg border-line bg-surface">
                     <SelectItem value="Mtn">MTN</SelectItem>
                     <SelectItem value="Airtel">Airtel</SelectItem>
                   </SelectContent>
                 </Select>
-                <FormMessage className="text-12 text-red-500" />
+                <FormMessage className="form-message" />
               </FormItem>
             )} />
           </div>
 
           <FormField control={form.control} name="note" render={({ field }) => (
             <FormItem>
-              <FormLabel className="text-14 font-medium text-gray-700">Note (optional)</FormLabel>
+              <FormLabel className="form-label">Note, optional</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Consultation fee" className="input-class" {...field} />
+                <Input placeholder="Consultation fee" className="input-class" {...field} />
               </FormControl>
-              <FormMessage className="text-12 text-red-500" />
+              <FormMessage className="form-message" />
             </FormItem>
           )} />
 
           {statusText && (
             <div
               role="status"
-              className={`flex items-start gap-2 rounded-lg p-3 text-sm ${
+              className={`notice flex items-start gap-2 ${
                 phase === 'success'
-                  ? 'bg-green-50 text-green-700'
+                  ? 'bg-positive-soft text-positive'
                   : phase === 'failed'
-                  ? 'bg-red-50 text-red-600'
-                  : 'bg-blue-50 text-blue-700'
+                  ? 'bg-negative-soft text-negative'
+                  : 'bg-subtle text-ink-2'
               }`}
             >
-              {phase === 'success' && <CheckCircle2 size={18} className="mt-0.5 shrink-0" />}
-              {phase === 'failed' && <XCircle size={18} className="mt-0.5 shrink-0" />}
-              {busy && <Loader2 size={18} className="mt-0.5 shrink-0 animate-spin" />}
+              {phase === 'success' && <CheckCircle2 size={18} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden="true" />}
+              {phase === 'failed' && <XCircle size={18} strokeWidth={1.5} className="mt-0.5 shrink-0" aria-hidden="true" />}
+              {busy && <Loader2 size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 animate-spin" aria-hidden="true" />}
               <span>{statusText}</span>
             </div>
           )}
 
-          <Button type="submit" disabled={busy} className="form-btn w-full">
+          <Button type="submit" disabled={busy} className="btn-primary w-full">
             {busy ? (
-              <><Loader2 size={20} className="animate-spin" />&nbsp;{phase === 'pending' ? 'Waiting for approval...' : 'Sending request...'}</>
+              <><Loader2 size={16} className="mr-2 animate-spin" aria-hidden="true" />{phase === 'pending' ? 'Waiting for approval…' : 'Sending request…'}</>
             ) : (
-              'Request Payment'
+              'Request payment'
             )}
           </Button>
         </form>

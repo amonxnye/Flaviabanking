@@ -12,16 +12,16 @@ const Assistant = async () => {
   if (!loggedIn) return null;
 
   return (
-    <section className="flex w-full flex-col bg-gray-25 p-8">
+    <section className="page">
       <HeaderBox
         title="Assistant"
-        subtext="Ask questions about your wallet, collections and linked accounts."
+        subtext="Ask about your wallet, collections and linked accounts"
       />
-      <div className="mt-6 max-w-3xl">
+      <div className="max-w-3xl">
         {isAssistantConfigured() ? (
           <AssistantChat />
         ) : (
-          <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="notice bg-caution-soft text-caution">
             The assistant isn&apos;t set up yet. Set <code>STUDIO_URL</code>,{' '}
             <code>STUDIO_API_KEY</code> and <code>STUDIO_AGENT_ID</code> to turn it on.
           </div>

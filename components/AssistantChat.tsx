@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, Send, Bot } from 'lucide-react';
+import { Loader2, Send, MessageSquare } from 'lucide-react';
 
 import { Button } from './ui/button';
 import {
@@ -99,24 +99,24 @@ const AssistantChat = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-14rem)] min-h-[420px] flex-col rounded-xl border border-gray-200 bg-white">
-      <p className="border-b border-gray-100 bg-gray-50 px-5 py-2 text-12 text-gray-600">
+    <div className="card flex h-[calc(100vh-14rem)] min-h-[420px] flex-col overflow-hidden">
+      <p className="border-b border-line bg-canvas px-5 py-2 text-12 text-ink-3">
         You&apos;re chatting with an AI assistant. It can read your wallet and linked accounts, but
         it can&apos;t move money without your explicit confirmation.
       </p>
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4" aria-live="polite">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4" aria-live="polite">
         {entries.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-            <Bot size={32} className="text-gray-400" aria-hidden="true" />
-            <p className="text-14 text-gray-600">Ask about your balance, collections or accounts.</p>
+            <MessageSquare size={24} strokeWidth={1.5} className="text-ink-3" aria-hidden="true" />
+            <p className="text-14 text-ink-2">Ask about your balance, collections or accounts</p>
             <div className="flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => send(s)}
-                  className="rounded-full border border-gray-300 px-3 py-1.5 text-13 text-gray-700 hover:bg-gray-50"
+                  className="h-8 rounded-lg border border-line-strong px-3 text-13 text-ink-2 transition-colors hover:bg-subtle hover:text-ink"
                 >
                   {s}
                 </button>
@@ -128,9 +128,9 @@ const AssistantChat = () => {
         {entries.map((e, i) => {
           if (e.kind === 'action') {
             return (
-              <div key={i} className="max-w-[85%] rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
-                <p className="font-semibold text-amber-900">Confirm action: {e.action.tool}</p>
-                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded bg-white p-2 text-xs text-gray-700">
+              <div key={i} className="max-w-[85%] rounded-xl border border-line-strong bg-surface p-4 text-14">
+                <p className="font-medium text-ink">Confirm action: <span className="figure text-13">{e.action.tool}</span></p>
+                <pre className="figure mt-2 overflow-x-auto whitespace-pre-wrap rounded-lg bg-subtle p-3 text-12 text-ink-2">
                   {JSON.stringify(e.action.input, null, 2)}
                 </pre>
                 {e.state === 'pending' || e.state === 'working' ? (
@@ -139,7 +139,7 @@ const AssistantChat = () => {
                       type="button"
                       disabled={e.state === 'working'}
                       onClick={() => decide(e.action.id, 'confirm')}
-                      className="bg-bank-gradient text-white"
+                      className="btn-primary h-9"
                     >
                       Confirm
                     </Button>
@@ -148,13 +148,14 @@ const AssistantChat = () => {
                       variant="outline"
                       disabled={e.state === 'working'}
                       onClick={() => decide(e.action.id, 'cancel')}
+                      className="btn-secondary"
                     >
                       Cancel
                     </Button>
                   </div>
                 ) : (
-                  <p className="mt-3 text-gray-700">
-                    {e.state === 'confirmed' ? 'Confirmed.' : 'Cancelled.'}
+                  <p className="mt-3 text-13 text-ink-2">
+                    {e.state === 'confirmed' ? 'Confirmed' : 'Cancelled'}
                   </p>
                 )}
               </div>
@@ -164,8 +165,8 @@ const AssistantChat = () => {
           return (
             <div key={i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <p
-                className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-14 ${
-                  mine ? 'bg-bank-gradient text-white' : 'bg-gray-100 text-gray-800'
+                className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-2.5 text-14 ${
+                  mine ? 'bg-brand text-white' : 'bg-subtle text-ink'
                 }`}
               >
                 {e.text}
@@ -175,15 +176,15 @@ const AssistantChat = () => {
         })}
 
         {busy && (
-          <div className="flex items-center gap-2 text-13 text-gray-500" role="status">
-            <Loader2 size={16} className="animate-spin" /> Thinking…
+          <div className="flex items-center gap-2 text-13 text-ink-3" role="status">
+            <Loader2 size={16} strokeWidth={1.5} className="animate-spin" aria-hidden="true" /> Thinking…
           </div>
         )}
         <div ref={endRef} />
       </div>
 
       {error && (
-        <div role="alert" className="mx-5 mb-2 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+        <div role="alert" className="notice mx-5 mb-2 bg-negative-soft text-negative">
           {error}
         </div>
       )}
@@ -193,7 +194,7 @@ const AssistantChat = () => {
           ev.preventDefault();
           send(input);
         }}
-        className="flex gap-2 border-t border-gray-100 p-4"
+        className="flex gap-2 border-t border-line p-4"
       >
         <label htmlFor="assistant-input" className="sr-only">
           Message the assistant
@@ -203,12 +204,12 @@ const AssistantChat = () => {
           value={input}
           onChange={(ev) => setInput(ev.target.value)}
           maxLength={4000}
-          placeholder="Ask a question…"
-          className="input-class flex-1 rounded-lg border border-gray-300 px-3 py-2 text-14"
+          placeholder="Ask a question"
+          className="input-class flex-1"
           disabled={busy}
         />
-        <Button type="submit" disabled={busy || !input.trim()} className="bg-bank-gradient text-white" aria-label="Send message">
-          <Send size={18} />
+        <Button type="submit" disabled={busy || !input.trim()} className="btn-primary w-10 px-0" aria-label="Send message">
+          <Send size={18} strokeWidth={1.5} aria-hidden="true" />
         </Button>
       </form>
     </div>

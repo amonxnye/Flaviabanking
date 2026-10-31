@@ -2,10 +2,10 @@
 
 import { sidebarLinks } from '@/constants'
 import { cn } from '@/lib/utils'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Footer from './Footer'
+import Logo from './Logo'
 import PlaidLink from './PlaidLink'
 
 const Sidebar = ({ user }: SiderbarProps) => {
@@ -13,47 +13,31 @@ const Sidebar = ({ user }: SiderbarProps) => {
 
   return (
     <section className="sidebar" role="navigation" aria-label="Main navigation">
-      <nav className="flex flex-col gap-4">
-        <Link href="/" className="mb-12 cursor-pointer flex items-center gap-2" aria-label="Horizon - Go to dashboard">
-          <Image
-            src="/icons/logo.svg"
-            width={34}
-            height={34}
-            alt="Horizon logo"
-            className="size-[24px] max-xl:size-14"
-          />
-          <h1 className="sidebar-logo">Horizon</h1>
+      <div className="flex flex-col gap-6">
+        <Link href="/" className="flex h-9 items-center px-2.5 max-xl:justify-center" aria-label="Horizon - Go to dashboard">
+          <Logo className="[&>span:last-child]:max-xl:hidden" />
         </Link>
 
-        {sidebarLinks.map((item) => {
-          const isActive = pathname === item.route || pathname.startsWith(`${item.route}/`)
+        <nav className="flex flex-col gap-1">
+          {sidebarLinks.map((item) => {
+            const isActive = item.route === '/' ? pathname === '/' : pathname === item.route || pathname.startsWith(`${item.route}/`)
+            const Icon = item.icon
 
-          return (
-            <Link href={item.route} key={item.label}
-              className={cn('sidebar-link', { 'bg-bank-gradient': isActive })}
-              aria-current={isActive ? 'page' : undefined}
-              aria-label={item.label}
-            >
-              <div className="relative size-6">
-                <Image
-                  src={item.imgURL}
-                  alt=""
-                  fill
-                  aria-hidden="true"
-                  className={cn({
-                    'brightness-[3] invert-0': isActive
-                  })}
-                />
-              </div>
-              <p className={cn("sidebar-label", { "!text-white": isActive })}>
-                {item.label}
-              </p>
-            </Link>
-          )
-        })}
+            return (
+              <Link href={item.route} key={item.label}
+                className={cn('sidebar-link', { 'sidebar-link-active': isActive })}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
+              >
+                <Icon size={18} strokeWidth={1.5} aria-hidden="true" className={cn('shrink-0', isActive ? 'text-brand' : 'text-ink-3')} />
+                <span className="max-xl:hidden">{item.label}</span>
+              </Link>
+            )
+          })}
 
-        <PlaidLink user={user} />
-      </nav>
+          <PlaidLink user={user} />
+        </nav>
+      </div>
 
       <Footer user={user} />
     </section>

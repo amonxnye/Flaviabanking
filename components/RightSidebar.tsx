@@ -1,4 +1,4 @@
-import Image from 'next/image'
+import { Plus } from 'lucide-react'
 import Link from 'next/link'
 import React from 'react'
 import BankCard from './BankCard'
@@ -10,52 +10,33 @@ const RightSidebar = ({ user, transactions, banks }: RightSidebarProps) => {
 
   return (
     <aside className="right-sidebar">
-      <section className="flex flex-col pb-8">
-        <div className="profile-banner" />
-        <div className="profile">
-          <div className="profile-img">
-            <span className="text-5xl font-bold text-blue-500">{user?.firstName?.[0]}</span>
-          </div>
-
-          <div className="profile-details">
-            <h1 className='profile-name'>
-              {user.firstName} {user.lastName}
-            </h1>
-            <p className="profile-email">
-              {user.email}
-            </p>
-          </div>
+      <section className="flex items-center gap-3">
+        <div className="flex-center size-12 shrink-0 rounded-full bg-subtle text-16 font-medium text-ink-2" aria-hidden="true">
+          {user?.firstName?.[0]}
+        </div>
+        <div className="flex min-w-0 flex-col">
+          <h2 className="truncate text-16 font-medium text-ink">
+            {user.firstName} {user.lastName}
+          </h2>
+          <p className="truncate text-13 text-ink-3">
+            {user.email}
+          </p>
         </div>
       </section>
 
-      <section className="banks">
-        <div className="flex w-full justify-between">
-          <h2 className="header-2">My Banks</h2>
-          <Link href="/" className="flex gap-2">
-            <Image 
-               src="/icons/plus.svg"
-              width={20}
-              height={20}
-              alt="plus"
-            />
-            <h2 className="text-14 font-semibold text-gray-600">
-              Add Bank
-            </h2>
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="header-2">My banks</h2>
+          <Link href="/" className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-13 text-ink-2 transition-colors hover:bg-subtle hover:text-ink">
+            <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
+            Add bank
           </Link>
         </div>
 
         {banks?.length > 0 && (
-          <div className="relative flex flex-1 flex-col items-center justify-center gap-5">
-            <div className='relative z-10'>
-              <BankCard 
-                key={banks[0].$id}
-                account={banks[0]}
-                userName={`${user.firstName} ${user.lastName}`}
-                showBalance={false}
-              />
-            </div>
+          <div className="relative pb-4">
             {banks[1] && (
-              <div className="absolute right-0 top-8 z-0 w-[90%]">
+              <div className="absolute inset-x-0 bottom-0 origin-bottom scale-[0.92] brightness-[0.8]" aria-hidden="true">
                 <BankCard 
                   key={banks[1].$id}
                   account={banks[1]}
@@ -64,18 +45,26 @@ const RightSidebar = ({ user, transactions, banks }: RightSidebarProps) => {
                 />
               </div>
             )}
+            <div className="relative">
+              <BankCard 
+                key={banks[0].$id}
+                account={banks[0]}
+                userName={`${user.firstName} ${user.lastName}`}
+                showBalance={false}
+              />
+            </div>
           </div>
         )}
+      </section>
 
-        <div className="mt-10 flex flex-1 flex-col gap-6">
-          <h2 className="header-2">Top categories</h2>
+      <section className="flex flex-col gap-4">
+        <h2 className="header-2">Top categories</h2>
 
-          <div className='space-y-5'>
-            {categories.map((category, index) => (
-              <Category key={category.name} category={category} />
-            ))}
-          </div>
-        </div>
+        <ul className="flex flex-col gap-4">
+          {categories.map((category) => (
+            <Category key={category.name} category={category} />
+          ))}
+        </ul>
       </section>
     </aside>
   )

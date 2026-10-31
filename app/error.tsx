@@ -1,7 +1,8 @@
 'use client';
 
-import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect } from 'react';
+import { LogoMark } from '@/components/Logo';
 
 export default function Error({
   error,
@@ -15,26 +16,22 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <div className="text-center max-w-lg">
-        <Image src="/icons/logo.svg" width={40} height={40} alt="Horizon logo" className="mx-auto mb-6" />
-        <h1 className="text-3xl font-bold text-gray-900 mb-3">Something went wrong</h1>
-        <p className="text-gray-600 mb-8">
-          Something unexpected happened on our side. Our team has been notified.
-        </p>
-        <div className="flex gap-4 justify-center">
-          <button
-            onClick={reset}
-            className="px-6 py-3 bg-bankGradient text-white rounded-lg font-semibold hover:opacity-90 transition-opacity"
-          >
-            Try Again
+    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas p-8">
+      <div className="flex max-w-md flex-col items-center gap-6 text-center">
+        <LogoMark className="size-8" />
+        <div className="flex flex-col gap-2">
+          <h1 className="text-24 font-medium text-ink">Something went wrong on our side</h1>
+          <p className="text-14 text-ink-2">
+            Our team has been notified. Try again, or go back to the overview.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={reset} className="btn-primary">
+            Try again
           </button>
-          <a
-            href="/"
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-          >
-            Go Home
-          </a>
+          <Link href="/" className="btn-secondary h-10">
+            Back to overview
+          </Link>
         </div>
       </div>
     </main>

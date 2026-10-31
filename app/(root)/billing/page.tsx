@@ -12,24 +12,20 @@ const Billing = async () => {
   const currentPlan = loggedIn.planTier || 'free';
 
   return (
-    <section className="billing">
-      <div className="mx-auto max-w-5xl w-full p-6">
-        <HeaderBox
-          title="Billing & Plans"
-          subtext="Manage your subscription and view usage."
-        />
+    <section className="page">
+      <HeaderBox
+        title="Billing and plans"
+        subtext="Your plan and what you have used of it"
+      />
 
-        <div className="mt-8 space-y-10">
-          <UsageDashboard
-            connectedBanks={accounts?.totalBanks || 0}
-            currentPlan={currentPlan}
-          />
+      <UsageDashboard
+        connectedBanks={accounts?.totalBanks || 0}
+        currentPlan={currentPlan}
+      />
 
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Available Plans</h2>
-            <PricingCards currentPlan={currentPlan} />
-          </div>
-        </div>
+      <div className="flex flex-col gap-4">
+        <h2 className="text-20 font-medium text-ink">Available plans</h2>
+        <PricingCards currentPlan={currentPlan} />
       </div>
     </section>
   );
