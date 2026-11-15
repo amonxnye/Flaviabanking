@@ -35,6 +35,8 @@ export interface WalletSnapshot {
     createdAt: string;
   }>;
   notConfigured?: boolean;
+  /** True when the ledger could not be read; balance is then unknown, not 0. */
+  loadFailed?: boolean;
 }
 
 /**
@@ -76,6 +78,6 @@ export async function loadWalletForUser(userId: string): Promise<WalletSnapshot>
     return { balance, currency: "UGX", transactions };
   } catch (error) {
     console.error("Failed to load wallet:", error);
-    return { balance: 0, currency: "UGX", transactions: [] };
+    return { balance: 0, currency: "UGX", transactions: [], loadFailed: true };
   }
 }

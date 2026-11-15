@@ -67,7 +67,7 @@ Copy `.env.example` and fill in. Key groups:
 
 - **Firebase** — `NEXT_PUBLIC_FIREBASE_*` web config (public). Locally also `FIREBASE_SERVICE_ACCOUNT`; on App Hosting the backend service account is used automatically.
 - **Plaid** — client id, secret, env, products, country codes.
-- **Dwolla** — key, secret, base URL, env.
+- **Dwolla** — key, secret, base URL, env, and `DWOLLA_WEBHOOK_SECRET`. Create a Dwolla webhook subscription to `https://<your-domain>/api/dwolla/webhook` with that secret so transfer statuses (pending → processed / failed / cancelled) stay current. Without it, pending transfers are re-checked with Dwolla when the account page loads.
 - **Security** — `ID_SIGNING_SECRET` (**required in production**; `openssl rand -hex 32`).
 - **ioTec Pay** — see the next section.
 
@@ -219,6 +219,7 @@ npm run dev     # start dev server
 npm run build   # production build
 npm run start   # run the production build
 npm run lint    # eslint
+npm test        # unit tests (vitest)
 ```
 
 ## Security notes

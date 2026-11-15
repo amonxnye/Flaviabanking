@@ -7,6 +7,7 @@ import {
   postMessage,
   resolveAction,
   isAssistantConfigured,
+  StudioError,
   type PendingAction,
 } from "../agentstudio/client";
 import { signConversation, openConversation } from "../agentstudio/security";
@@ -52,12 +53,20 @@ export const sendAssistantMessage = async (
   return { reply: result.reply, pendingActions: result.pending_actions };
 };
 
+/**
+ * ok: done. settled: the card must not offer the choice again, because the
+ * action already finished (conflict) or may have run (timeout). Otherwise the
+ * customer may try again. Returned, not thrown: Next.js hides thrown messages
+ * in production.
+ */
+export type ResolveActionResult = { ok: true } | { ok: false; error: string; settled: boolean };
+
 /** Confirm or cancel an action — only ever on an explicit customer choice. */
 export const resolveAssistantAction = async (
   token: string,
   actionId: string,
   decision: "confirm" | "cancel"
-): Promise<{ ok: true }> => {
+): Promise<ResolveActionResult> => {
   const user = await requireUser();
 
   const conversationId = openConversation(user.$id, token);
@@ -65,7 +74,22 @@ export const resolveAssistantAction = async (
   if (!/^[\w-]+$/.test(actionId)) throw new Error("Invalid action.");
   if (decision !== "confirm" && decision !== "cancel") throw new Error("Invalid decision.");
 
-  await resolveAction(conversationId, actionId, decision);
+  try {
+    await resolveAction(conversationId, actionId, decision);
+  } catch (error) {
+    if (error instanceof StudioError) {
+      if (error.code === "conflict") return { ok: false, error: error.message, settled: true };
+      if (error.code === "timeout") {
+        return {
+          ok: false,
+          error: "We could not confirm whether this ran. Ask the assistant for the latest status before trying again.",
+          settled: true,
+        };
+      }
+      return { ok: false, error: error.message, settled: false };
+    }
+    throw error;
+  }
 
   await createAuditLog({
     userId: user.$id,

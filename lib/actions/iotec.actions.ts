@@ -13,6 +13,9 @@ import {
   getTransactionStatus,
   isSuccess,
   isFailure,
+  isPending,
+  canChangeLedgerStatus,
+  IotecHttpError,
   type IotecStatus,
 } from "../iotec/client";
 import { normalizeUgandanMsisdn } from "../iotec/phone";
@@ -46,9 +49,11 @@ export interface CollectInput {
  * Initiate a mobile-money collection from a payer.
  *
  * Ordering matters: we persist a Pending ledger row BEFORE calling ioTec so the
- * row always exists by the time a webhook or poll reports back (no race). If the
- * ioTec call fails, the row is marked Failed. The amount only counts toward the
- * balance once the status is confirmed Success.
+ * row always exists by the time a webhook or poll reports back (no race). If
+ * the row cannot be written, nothing is sent to the payer. If ioTec rejects the
+ * request the row is marked Failed; if the outcome is unknown (timeout, network)
+ * it is marked Indeterminate so a later callback can still settle it. The
+ * amount only counts toward the balance once the status is confirmed Success.
  */
 export const collectFromUser = async (input: CollectInput) => {
   const loggedIn = await getLoggedInUser();
@@ -65,9 +70,9 @@ export const collectFromUser = async (input: CollectInput) => {
   }
 
   const externalId = randomUUID();
-  let ledgerDocId: string | null = null;
+  let ledgerDocId: string;
 
-  // 1. Create the Pending row first.
+  // 1. Create the Pending row first. Without it, money could arrive unrecorded.
   try {
     const doc = await ledger().add({
       userId: loggedIn.$id,
@@ -85,6 +90,7 @@ export const collectFromUser = async (input: CollectInput) => {
     ledgerDocId = doc.id;
   } catch (error) {
     console.error("Failed to create wallet ledger entry:", error);
+    throw new Error("We could not start this request. No payment was requested. Please try again.");
   }
 
   // 2. Initiate with ioTec. On failure, mark the row Failed and surface it.
@@ -98,26 +104,28 @@ export const collectFromUser = async (input: CollectInput) => {
       payerNote: parsed.data.note,
     });
   } catch (error) {
-    if (ledgerDocId) {
-      try {
-        await ledger().doc(ledgerDocId).update({ status: "Failed" as IotecStatus });
-      } catch (e) {
-        console.error("Failed to mark ledger entry failed:", e);
-      }
+    const definite = error instanceof IotecHttpError;
+    try {
+      await ledger().doc(ledgerDocId).update({
+        status: (definite ? "Failed" : "Indeterminate") as IotecStatus,
+      });
+    } catch (e) {
+      console.error("Failed to update ledger entry after ioTec error:", e);
     }
-    throw error;
+    if (definite) throw error;
+    throw new Error(
+      "We could not confirm the request. If the payer approves it, it will show in your wallet."
+    );
   }
 
   // 3. Backfill the ioTec transaction id and its initial status.
-  if (ledgerDocId) {
-    try {
-      await ledger().doc(ledgerDocId).update({
-        iotecTransactionId: txn.id,
-        status: (txn.status as IotecStatus) || "Pending",
-      });
-    } catch (error) {
-      console.error("Failed to update wallet ledger entry:", error);
-    }
+  try {
+    await ledger().doc(ledgerDocId).update({
+      iotecTransactionId: txn.id,
+      status: (txn.status as IotecStatus) || "Pending",
+    });
+  } catch (error) {
+    console.error("Failed to update wallet ledger entry:", error);
   }
 
   await createAuditLog({
@@ -158,6 +166,7 @@ export const checkCollectionStatus = async (transactionId: string) => {
  * Update the persisted status of a collection. Looks up by ioTec transaction id,
  * falling back to externalId (covers the narrow window before the id is backfilled).
  * Idempotent: repeated callbacks with the same status are harmless.
+ * Guarded: a settled row (Success, Failed, Cancelled) never changes status.
  */
 export async function syncLedgerStatus(
   iotecTransactionId: string,
@@ -177,11 +186,13 @@ export async function syncLedgerStatus(
     if (existing.empty) return;
 
     const doc = toDoc<LedgerDoc>(existing.docs[0])!;
-    const patch: Record<string, unknown> = { status };
+    const patch: Record<string, unknown> = {};
+    if (canChangeLedgerStatus(doc.status, status)) patch.status = status;
     // Backfill the id if the row was matched by externalId before it was set.
     if (!doc.iotecTransactionId && iotecTransactionId) {
       patch.iotecTransactionId = iotecTransactionId;
     }
+    if (Object.keys(patch).length === 0) return;
 
     await ledger().doc(doc.$id).update(patch);
     revalidatePath("/wallet");
@@ -189,6 +200,11 @@ export async function syncLedgerStatus(
     console.error("Failed to sync ledger status:", error);
   }
 }
+
+// In-flight rows older than this are re-checked with ioTec when the wallet
+// loads, so a missed webhook cannot leave them pending forever.
+const RECHECK_AFTER_MS = 2 * 60_000;
+const MAX_RECHECKS_PER_LOAD = 5;
 
 /**
  * Wallet balance = sum of ALL confirmed (Success) collections for this user
@@ -198,5 +214,35 @@ export const getWallet = async () => {
   const loggedIn = await getLoggedInUser();
   if (!loggedIn) return parseStringify({ balance: 0, currency: "UGX", transactions: [] });
 
-  return parseStringify(await loadWalletForUser(loggedIn.$id));
+  const wallet = await loadWalletForUser(loggedIn.$id);
+  const changed = await recheckStaleCollections(wallet.transactions);
+
+  return parseStringify(changed ? await loadWalletForUser(loggedIn.$id) : wallet);
 };
+
+/** Re-query ioTec for a few stale in-flight rows. Returns true if any was checked. */
+async function recheckStaleCollections(
+  transactions: Array<{ iotecTransactionId?: string; status: string; createdAt: string }>
+): Promise<boolean> {
+  const now = Date.now();
+  const stale = transactions
+    .filter(
+      (t) =>
+        t.iotecTransactionId &&
+        isPending(t.status as IotecStatus) &&
+        now - new Date(t.createdAt).getTime() > RECHECK_AFTER_MS
+    )
+    .slice(0, MAX_RECHECKS_PER_LOAD);
+
+  await Promise.all(
+    stale.map(async (t) => {
+      try {
+        const txn = await getTransactionStatus(t.iotecTransactionId!);
+        await syncLedgerStatus(t.iotecTransactionId!, txn.status as IotecStatus);
+      } catch (error) {
+        console.error("Failed to re-check collection status:", error);
+      }
+    })
+  );
+  return stale.length > 0;
+}

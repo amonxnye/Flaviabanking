@@ -4,6 +4,11 @@ import { z } from "zod";
 import { adminAuth, adminDb, COLLECTIONS, toDoc, toDocs } from "../firebase/admin";
 import { clearSessionCookie, getSessionUid } from "../session";
 import { parseStringify } from "../utils";
+import { plaidClient } from "../plaid";
+import { deactivateDwollaCustomer } from "./dwolla.actions";
+
+// Firestore allows 500 writes per batch; stay under it.
+const DELETE_BATCH_SIZE = 400;
 
 const profileUpdateSchema = z.object({
   firstName: z.string().min(2).max(50).regex(/^[a-zA-Z\s'-]+$/),
@@ -24,7 +29,7 @@ async function requireSelf(userId: string) {
 
 async function listUserBanks(userId: string) {
   const snap = await adminDb().collection(COLLECTIONS.banks).where('userId', '==', userId).get();
-  return toDocs<{ userId: string }>(snap);
+  return toDocs<{ userId: string; accessToken?: string }>(snap);
 }
 
 async function listBankTransactions(bankId: string) {
@@ -115,21 +120,57 @@ export const exportUserData = async (userId: string) => {
   }
 };
 
+/**
+ * Delete the signed-in user's account.
+ *
+ * Deleted: profile, linked banks (and their Plaid items), transfers the user
+ * sent, wallet history, and the login. The Dwolla customer is deactivated.
+ * Kept: transfers other customers sent to this user (they are also the
+ * sender's records) and security audit logs.
+ *
+ * Order: outside services first (best effort), then Firestore in batches, then
+ * the login last. If a step fails the user can still sign in and retry; a
+ * login left without a profile can finish sign-up again.
+ */
 export const deleteUserAccount = async (userId: string) => {
   try {
     await requireSelf(userId);
 
     const db = adminDb();
+    const userRef = db.collection(COLLECTIONS.users).doc(userId);
+    const profile = toDoc<{ dwollaCustomerUrl?: string }>(await userRef.get());
     const banks = await listUserBanks(userId);
+
+    // 1. Outside services. Failures are logged and do not block deletion.
+    await Promise.all(
+      banks.map((bank) =>
+        bank.accessToken
+          ? plaidClient.itemRemove({ access_token: bank.accessToken }).catch((e) =>
+              console.error('Failed to remove Plaid item:', e)
+            )
+          : undefined
+      )
+    );
+    if (profile?.dwollaCustomerUrl) await deactivateDwollaCustomer(profile.dwollaCustomerUrl);
+
+    // 2. Firestore documents.
+    const refs: FirebaseFirestore.DocumentReference[] = [];
     for (const bank of banks) {
       const { sent } = await listBankTransactions(bank.$id);
-      for (const txn of sent) {
-        await db.collection(COLLECTIONS.transactions).doc(txn.$id).delete();
-      }
-      await db.collection(COLLECTIONS.banks).doc(bank.$id).delete();
+      refs.push(...sent.map((txn) => db.collection(COLLECTIONS.transactions).doc(txn.$id)));
+      refs.push(db.collection(COLLECTIONS.banks).doc(bank.$id));
+    }
+    const wallet = await db.collection(COLLECTIONS.walletTransactions).where('userId', '==', userId).get();
+    refs.push(...wallet.docs.map((d) => d.ref));
+    refs.push(userRef); // profile last, so a partial failure can be retried
+
+    for (let i = 0; i < refs.length; i += DELETE_BATCH_SIZE) {
+      const batch = db.batch();
+      refs.slice(i, i + DELETE_BATCH_SIZE).forEach((ref) => batch.delete(ref));
+      await batch.commit();
     }
 
-    await db.collection(COLLECTIONS.users).doc(userId).delete();
+    // 3. The login.
     await adminAuth().deleteUser(userId);
 
     clearSessionCookie();
