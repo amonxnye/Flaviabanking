@@ -42,19 +42,14 @@ const PricingCards = ({ currentPlan }: { currentPlan: string }) => {
               ))}
             </ul>
 
+            {/* No payment provider is connected yet, so plan changes are not
+                offered. Re-enable these buttons when billing exists. */}
             <button
-              disabled={isCurrentPlan}
-              className={cn(
-                'mt-6 w-full',
-                isCurrentPlan
-                  ? 'h-10 cursor-default rounded-lg border border-line text-14 font-medium text-ink-3'
-                  : tier === 'pro'
-                    ? 'btn-primary'
-                    : 'btn-secondary h-10'
-              )}
-              aria-label={isCurrentPlan ? `${plan.name} is your current plan` : `Upgrade to ${plan.name}`}
+              disabled
+              className="mt-6 h-10 w-full cursor-default rounded-lg border border-line text-14 font-medium text-ink-3"
+              aria-label={isCurrentPlan ? `${plan.name} is your current plan` : `Changing to ${plan.name} is not available yet`}
             >
-              {isCurrentPlan ? 'Current plan' : tier === 'free' ? 'Downgrade' : 'Upgrade'}
+              {isCurrentPlan ? 'Current plan' : 'Coming soon'}
             </button>
           </div>
         );

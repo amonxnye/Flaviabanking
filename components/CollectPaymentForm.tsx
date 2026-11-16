@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -38,7 +38,9 @@ const formSchema = z.object({
   note: z.string().max(140).optional(),
 });
 
-type Phase = 'idle' | 'submitting' | 'pending' | 'success' | 'failed';
+// 'timedOut': we stopped polling but the payer may still approve. The user can
+// check again or send a new request; the wallet page re-checks it later too.
+type Phase = 'idle' | 'submitting' | 'pending' | 'timedOut' | 'success' | 'failed';
 
 const MAX_POLLS = 20; // ~60s at 3s intervals
 const POLL_INTERVAL_MS = 3000;
@@ -47,6 +49,15 @@ const CollectPaymentForm = () => {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('idle');
   const [statusText, setStatusText] = useState('');
+  const [lastTransactionId, setLastTransactionId] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -56,6 +67,7 @@ const CollectPaymentForm = () => {
   const poll = async (transactionId: string) => {
     for (let i = 0; i < MAX_POLLS; i++) {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+      if (!mounted.current) return; // user left the page: stop polling
       try {
         const result = await checkCollectionStatus(transactionId);
         if (result.settled) {
@@ -73,9 +85,18 @@ const CollectPaymentForm = () => {
         // transient — keep polling
       }
     }
+    if (!mounted.current) return;
+    setPhase('timedOut');
     setStatusText(
       'Still waiting for confirmation. It will appear in your wallet once the payer approves.'
     );
+  };
+
+  const checkAgain = () => {
+    if (!lastTransactionId) return;
+    setPhase('pending');
+    setStatusText('Checking the payment status…');
+    poll(lastTransactionId);
   };
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
@@ -90,6 +111,7 @@ const CollectPaymentForm = () => {
       });
       setPhase('pending');
       setStatusText('Request sent. Ask the customer to approve the prompt on their phone.');
+      setLastTransactionId(res.transactionId);
       poll(res.transactionId);
     } catch (error: any) {
       setPhase('failed');
@@ -174,6 +196,12 @@ const CollectPaymentForm = () => {
               {busy && <Loader2 size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 animate-spin" aria-hidden="true" />}
               <span>{statusText}</span>
             </div>
+          )}
+
+          {phase === 'timedOut' && (
+            <Button type="button" variant="outline" onClick={checkAgain} className="btn-secondary h-10 w-full">
+              Check again
+            </Button>
           )}
 
           <Button type="submit" disabled={busy} className="btn-primary w-full">

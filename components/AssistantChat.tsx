@@ -18,7 +18,7 @@ interface PendingAction {
 
 type Entry =
   | { kind: 'user' | 'assistant' | 'system'; text: string }
-  | { kind: 'action'; action: PendingAction; state: 'pending' | 'confirmed' | 'cancelled' | 'working' };
+  | { kind: 'action'; action: PendingAction; state: 'pending' | 'confirmed' | 'cancelled' | 'working' | 'closed' };
 
 const SUGGESTIONS = [
   "What's my wallet balance?",
@@ -82,13 +82,14 @@ const AssistantChat = () => {
       prev.map((e) => (e.kind === 'action' && e.action.id === actionId ? { ...e, state: 'working' } : e))
     );
     try {
-      await resolveAssistantAction(token, actionId, decision);
+      const result = await resolveAssistantAction(token, actionId, decision);
+      // Failed but settled (already done, or may have run): never offer it again.
+      const next = result.ok
+        ? decision === 'confirm' ? 'confirmed' : 'cancelled'
+        : result.settled ? 'closed' : 'pending';
+      if (!result.ok) setError(result.error);
       setEntries((prev) =>
-        prev.map((e) =>
-          e.kind === 'action' && e.action.id === actionId
-            ? { ...e, state: decision === 'confirm' ? 'confirmed' : 'cancelled' }
-            : e
-        )
+        prev.map((e) => (e.kind === 'action' && e.action.id === actionId ? { ...e, state: next } : e))
       );
     } catch (e: any) {
       setError(e?.message || 'Could not complete that action.');
@@ -155,7 +156,7 @@ const AssistantChat = () => {
                   </div>
                 ) : (
                   <p className="mt-3 text-13 text-ink-2">
-                    {e.state === 'confirmed' ? 'Confirmed' : 'Cancelled'}
+                    {e.state === 'confirmed' ? 'Confirmed' : e.state === 'closed' ? 'Closed. See the message above.' : 'Cancelled'}
                   </p>
                 )}
               </div>

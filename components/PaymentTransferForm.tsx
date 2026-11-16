@@ -7,10 +7,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
-import { createTransfer } from "@/lib/actions/dwolla.actions";
-import { createTransaction } from "@/lib/actions/transaction.actions";
-import { getBank, getBankByAccountId } from "@/lib/actions/user.actions";
-import { decryptId } from "@/lib/utils";
+import { transferFunds } from "@/lib/actions/transfer.actions";
 
 import { BankDropdown } from "./BankDropdown";
 import { Button } from "./ui/button";
@@ -38,6 +35,9 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [transferError, setTransferError] = useState('');
+  // One key per transfer attempt: a double click or a retry after a timeout
+  // reuses it, so the server never starts the same transfer twice.
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -51,51 +51,32 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
   });
 
   const submit = async (data: z.infer<typeof formSchema>) => {
+    if (isLoading) return;
     setIsLoading(true);
     setTransferError('');
 
     try {
-      const receiverAccountId = decryptId(data.sharableId);
-      const receiverBank = await getBankByAccountId({
-        accountId: receiverAccountId,
+      const result = await transferFunds({
+        idempotencyKey,
+        senderBankId: data.senderBank,
+        sharableId: data.sharableId,
+        amount: data.amount,
+        name: data.name,
+        email: data.email,
       });
-      const senderBank = await getBank({ documentId: data.senderBank });
 
-      if (!receiverBank || !senderBank) {
-        setTransferError('Could not find the specified bank account. Please check the details and try again.');
-        setIsLoading(false);
+      if (result.ok) {
+        form.reset();
+        setIdempotencyKey(crypto.randomUUID());
+        router.push("/");
         return;
       }
 
-      const transferParams = {
-        sourceFundingSourceUrl: senderBank.fundingSourceUrl,
-        destinationFundingSourceUrl: receiverBank.fundingSourceUrl,
-        amount: data.amount,
-      };
-
-      const transfer = await createTransfer(transferParams);
-
-      if (transfer) {
-        const transaction = {
-          name: data.name,
-          amount: data.amount,
-          senderId: senderBank.userId,
-          senderBankId: senderBank.$id,
-          receiverId: receiverBank.userId,
-          receiverBankId: receiverBank.$id,
-          email: data.email,
-        };
-
-        const newTransaction = await createTransaction(transaction);
-
-        if (newTransaction) {
-          form.reset();
-          router.push("/");
-        }
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Transfer failed. Please try again.';
-      setTransferError(message);
+      setTransferError(result.error);
+      // Keep the key only when the outcome is unknown, so a retry is safe.
+      if (!result.retryable) setIdempotencyKey(crypto.randomUUID());
+    } catch {
+      setTransferError('Transfer failed. Please try again.');
     }
 
     setIsLoading(false);

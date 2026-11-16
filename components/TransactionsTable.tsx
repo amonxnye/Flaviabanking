@@ -7,7 +7,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { categoryColors } from "@/constants"
-import { cn, formatAmount, formatDateTime, getTransactionStatus, removeSpecialCharacters } from "@/lib/utils"
+import { cn, formatAmount, formatDateTime, removeSpecialCharacters } from "@/lib/utils"
+import { displayStatus } from "@/lib/transfer-status"
 
 const CategoryBadge = ({ category }: CategoryBadgeProps) => (
   <span className="flex items-center gap-2 whitespace-nowrap text-13 text-ink-2">
@@ -32,7 +33,7 @@ const TransactionsTable = ({ transactions, compact = false }: TransactionTablePr
         </TableHeader>
         <TableBody>
           {(transactions || []).map((t: Transaction) => {
-            const status = getTransactionStatus(new Date(t.date))
+            const status = displayStatus(t)
             const isNegative = t.type === 'debit' || t.amount < 0;
             const amount = formatAmount(Math.abs(t.amount))
 

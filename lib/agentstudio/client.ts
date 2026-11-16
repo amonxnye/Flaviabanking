@@ -30,6 +30,17 @@ export function isAssistantConfigured(): boolean {
   );
 }
 
+/**
+ * conflict: the action was already completed or cancelled.
+ * timeout:  no answer in time; the request may or may not have run.
+ */
+export class StudioError extends Error {
+  constructor(message: string, readonly code: "busy" | "conflict" | "timeout" | "unavailable") {
+    super(message);
+    this.name = "StudioError";
+  }
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
@@ -40,28 +51,36 @@ async function studioFetch<T>(path: string, init: RequestInit = {}): Promise<T> 
   const base = requireEnv("STUDIO_URL").replace(/\/$/, "");
   const key = requireEnv("STUDIO_API_KEY");
 
-  const res = await fetch(`${base}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${key}`,
-      ...(init.headers || {}),
-    },
-    cache: "no-store",
-    // Tool calls can take up to 8 rounds x 15s; give the assistant room.
-    signal: AbortSignal.timeout(110_000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+        ...(init.headers || {}),
+      },
+      cache: "no-store",
+      // Tool calls can take up to 8 rounds x 15s; give the assistant room.
+      signal: AbortSignal.timeout(110_000),
+    });
+  } catch (error) {
+    if ((error as Error)?.name === "TimeoutError") {
+      throw new StudioError("The assistant did not answer in time.", "timeout");
+    }
+    throw new StudioError("The assistant is unavailable right now. Please try again shortly.", "unavailable");
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     console.error(`AgentStudio ${init.method || "GET"} ${path} -> ${res.status}: ${detail.slice(0, 200)}`);
     if (res.status === 429) {
-      throw new Error("The assistant is busy right now. Please try again in a minute.");
+      throw new StudioError("The assistant is busy right now. Please try again in a minute.", "busy");
     }
     if (res.status === 409) {
-      throw new Error("That action was already completed or cancelled.");
+      throw new StudioError("That action was already completed or cancelled.", "conflict");
     }
-    throw new Error("The assistant is unavailable right now. Please try again shortly.");
+    throw new StudioError("The assistant is unavailable right now. Please try again shortly.", "unavailable");
   }
 
   return (await res.json()) as T;

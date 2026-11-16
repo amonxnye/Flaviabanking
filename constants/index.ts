@@ -75,5 +75,7 @@ export const categoryColors: Record<string, string> = {
   "Bank Fees": "bg-[#93570A]",
   Processing: "bg-caution",
   Success: "bg-positive",
+  Failed: "bg-negative",
+  Cancelled: "bg-negative",
   default: "bg-ink-3",
 };

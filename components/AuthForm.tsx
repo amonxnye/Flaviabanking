@@ -76,7 +76,18 @@ const AuthForm = ({ type }: { type: string }) => {
         const auth = getFirebaseAuth();
 
         if(type === 'sign-up') {
-          const credential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+          let credential;
+          try {
+            credential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+          } catch (error) {
+            // An earlier sign-up may have stopped after the login was created.
+            // Sign in with the same password; the server then finishes the
+            // profile, or says the account already exists.
+            if ((error as { code?: string })?.code !== 'auth/email-already-in-use') throw error;
+            credential = await signInWithEmailAndPassword(auth, data.email, data.password).catch(() => {
+              throw error;
+            });
+          }
           const idToken = await credential.user.getIdToken();
 
           const userData = {
