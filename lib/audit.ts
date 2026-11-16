@@ -1,4 +1,7 @@
-'use server';
+import "server-only";
+
+// Server-only (not "use server"): as a server action, anyone could write
+// fake audit entries or read another user's log.
 
 import { adminDb, COLLECTIONS, serverTimestamp, toDocs } from "./firebase/admin";
 import { parseStringify } from "./utils";

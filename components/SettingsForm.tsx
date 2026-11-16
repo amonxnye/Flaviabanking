@@ -230,9 +230,9 @@ const SettingsForm = ({ user }: { user: User }) => {
           <div className="border-t border-gray-200 pt-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-1">Data Retention</h2>
             <p className="text-sm text-gray-600">
-              We retain your transaction data for 7 years as required by financial regulations.
-              Personal profile data is kept as long as your account is active. You can request
-              full deletion at any time from the Danger Zone section.
+              Personal profile data is kept as long as your account is active. When you delete
+              your account we keep only security audit logs and transfers that other customers
+              sent to you, because those records also belong to them.
             </p>
           </div>
 
@@ -252,8 +252,9 @@ const SettingsForm = ({ user }: { user: User }) => {
           <div className="border border-red-200 rounded-lg p-6 bg-red-50">
             <h2 className="text-lg font-semibold text-red-900 mb-1">Delete Account</h2>
             <p className="text-sm text-red-700 mb-4">
-              This action is permanent and cannot be undone. All your data, connected bank accounts,
-              and transaction history will be permanently deleted (GDPR Article 17).
+              This action is permanent and cannot be undone. We delete your profile, connected
+              bank accounts, wallet history, and the transfers you sent. We keep security audit
+              logs and transfers that other customers sent to you.
             </p>
 
             {!showDeleteConfirm ? (

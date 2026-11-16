@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true, status: txn.status });
   } catch (error) {
     console.error("ioTec webhook processing failed:", error);
-    // 200 so ioTec does not hammer retries on our transient errors; we log it.
-    return NextResponse.json({ received: true, deferred: true });
+    // Non-2xx so ioTec can retry. The wallet page also re-checks stale rows.
+    return NextResponse.json({ error: "Temporary failure" }, { status: 503 });
   }
 }
 

@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { verifyStudioSignature } from "@/lib/agentstudio/security";
 import { loadWalletForUser } from "@/lib/wallet-ledger";
-import { getAccounts } from "@/lib/actions/bank.actions";
+import { loadAccountsForUser } from "@/lib/accounts";
 
 /**
  * Tool endpoints called BY AgentStudio on behalf of a signed-in customer.
@@ -34,6 +34,7 @@ const TOOLS: Record<string, Handler> = {
   async get_wallet_balance(userId) {
     const wallet = await loadWalletForUser(userId);
     if (wallet.notConfigured) return { available: false, reason: "Wallet is not set up yet." };
+    if (wallet.loadFailed) return { available: false, reason: "The wallet could not be loaded right now." };
     return {
       available: true,
       balance: wallet.balance,
@@ -64,7 +65,7 @@ const TOOLS: Record<string, Handler> = {
   },
 
   async get_linked_accounts(userId) {
-    const accounts = await getAccounts({ userId });
+    const accounts = await loadAccountsForUser({ userId });
     const data: Array<Record<string, unknown>> = accounts?.data ?? [];
     return {
       count: data.length,

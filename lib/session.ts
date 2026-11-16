@@ -24,16 +24,27 @@ export async function createSessionCookie(idToken: string): Promise<{ uid: strin
   return { uid: decoded.uid };
 }
 
-/** Returns the signed-in user's uid, or null if there is no valid session. */
+/**
+ * Returns the signed-in user's uid, or null if there is no valid session.
+ * checkRevoked: logout revokes the user's tokens, so a copied cookie stops
+ * working at once instead of living until it expires.
+ */
 export async function getSessionUid(): Promise<string | null> {
   const cookie = cookies().get(SESSION_COOKIE)?.value;
   if (!cookie) return null;
   try {
-    const decoded = await adminAuth().verifySessionCookie(cookie);
+    const decoded = await adminAuth().verifySessionCookie(cookie, true);
     return decoded.uid;
   } catch {
     return null;
   }
+}
+
+/** Like getSessionUid, but throws when nobody is signed in. */
+export async function requireSessionUid(): Promise<string> {
+  const uid = await getSessionUid();
+  if (!uid) throw new Error("Please sign in again.");
+  return uid;
 }
 
 export function clearSessionCookie() {

@@ -58,6 +58,8 @@ env:
   #   secret: DWOLLA_KEY
   # - variable: DWOLLA_SECRET
   #   secret: DWOLLA_SECRET
+  # - variable: DWOLLA_WEBHOOK_SECRET      # Dwolla webhook subscription to /api/dwolla/webhook
+  #   secret: DWOLLA_WEBHOOK_SECRET
   # - variable: ID_SIGNING_SECRET          # required in production: openssl rand -hex 32
   #   secret: ID_SIGNING_SECRET
   # - variable: IOTEC_CLIENT_ID

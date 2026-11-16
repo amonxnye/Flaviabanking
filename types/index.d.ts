@@ -76,6 +76,9 @@ declare type Transaction = {
   date: string;
   image: string;
   $createdAt: string;
+  /** Stored Dwolla status for transfers made in this app. */
+  status?: string;
+  transferStatus?: string;
   channel: string;
   senderBankId: string;
   receiverBankId: string;
@@ -279,16 +282,6 @@ declare interface CreateFundingSourceOptions {
   _links: object; // Dwolla On Demand Authorization Link
 }
 
-declare interface CreateTransactionProps {
-  name: string;
-  amount: string;
-  senderId: string;
-  senderBankId: string;
-  receiverId: string;
-  receiverBankId: string;
-  email: string;
-}
-
 declare interface getTransactionsByBankIdProps {
   bankId: string;
 }
@@ -307,7 +300,6 @@ declare interface getUserInfoProps {
 
 declare interface exchangePublicTokenProps {
   publicToken: string;
-  user: User;
 }
 
 declare interface createBankAccountProps {
@@ -321,14 +313,6 @@ declare interface createBankAccountProps {
 
 declare interface getBanksProps {
   userId: string;
-}
-
-declare interface getBankProps {
-  documentId: string;
-}
-
-declare interface getBankByAccountIdProps {
-  accountId: string;
 }
 
 // ========================================

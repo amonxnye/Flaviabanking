@@ -7,12 +7,16 @@ import { plaidClient } from '@/lib/plaid';
 import { revalidatePath } from "next/cache";
 import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
 import { createAuditLog } from "../audit";
-import { adminAuth, adminDb, COLLECTIONS, serverTimestamp, toDoc, toDocs } from "../firebase/admin";
+import { removeFundingSource } from "./dwolla.actions";
+import { adminAuth, adminDb, COLLECTIONS, serverTimestamp, toDoc } from "../firebase/admin";
 import { clearSessionCookie, createSessionCookie, getSessionUid } from "../session";
+import { createBankAccount, getBanks } from "../banks";
+import { checkBankLimit, getPlanForUser } from "../plans";
 
 // User profile documents live at users/{uid}, so a profile's $id is the
 // Firebase Auth uid. `userId` is stored too for backwards-compatible reads.
-export const getUserInfo = async ({ userId }: getUserInfoProps) => {
+// Not exported: as a server action it would let anyone read any profile.
+const getUserInfo = async ({ userId }: getUserInfoProps) => {
   try {
     const snap = await adminDb().collection(COLLECTIONS.users).doc(userId).get();
     const user = toDoc(snap);
@@ -35,7 +39,7 @@ export const signIn = async ({ idToken }: signInProps) => {
 
     const user = await getUserInfo({ userId: uid });
     if (!user) {
-      return { error: 'No profile found for this account. Please sign up again.' };
+      return { error: 'Your sign-up was not finished. Go to Sign up and use the same email and password to finish it.' };
     }
 
     await createSessionCookie(idToken);
@@ -49,13 +53,16 @@ export const signIn = async ({ idToken }: signInProps) => {
 }
 
 /**
- * Called after the browser created the Firebase Auth user. Creates the Dwolla
- * customer and the profile document, then starts the session. If anything
- * fails the just-created auth user is removed so the email can be retried.
+ * Called after the browser created (or, to finish an earlier attempt, signed
+ * in to) the Firebase Auth user. Creates the Dwolla customer and the profile
+ * document, then starts the session. If anything fails before the profile is
+ * written, the auth user is removed so the email can be retried. An auth user
+ * that already has a profile is never removed.
  */
 export const signUp = async ({ idToken, ...userData }: CompleteSignUpParams) => {
   const { email, firstName, lastName } = userData;
   let uid: string | undefined;
+  let rollbackAuthUser = false;
 
   try {
     const decoded = await adminAuth().verifyIdToken(idToken);
@@ -63,6 +70,11 @@ export const signUp = async ({ idToken, ...userData }: CompleteSignUpParams) => 
     if (decoded.email?.toLowerCase() !== email.toLowerCase()) {
       throw new Error('Email does not match the signed-in account');
     }
+
+    if (await getUserInfo({ userId: uid })) {
+      return { error: 'An account with this email already exists. Please sign in.' };
+    }
+    rollbackAuthUser = true;
 
     const dwollaCustomerUrl = await createDwollaCustomer({
       ...userData,
@@ -85,13 +97,14 @@ export const signUp = async ({ idToken, ...userData }: CompleteSignUpParams) => 
       ...profile,
       createdAt: serverTimestamp(),
     });
+    rollbackAuthUser = false;
 
     await createSessionCookie(idToken);
     await createAuditLog({ userId: uid, action: 'user.signup' });
 
     return parseStringify({ $id: uid, ...profile });
   } catch (error) {
-    if (uid) {
+    if (uid && rollbackAuthUser) {
       await adminAuth().deleteUser(uid).catch((e) => console.error('Rollback of auth user failed:', e));
     }
     const message = error instanceof Error ? error.message : 'Failed to create account';
@@ -126,8 +139,11 @@ export const logoutAccount = async () => {
   }
 }
 
-export const createLinkToken = async (user: User) => {
+export const createLinkToken = async () => {
   try {
+    const user = await getLoggedInUser();
+    if (!user) return null;
+
     const tokenParams = {
       user: {
         client_user_id: user.$id
@@ -146,39 +162,22 @@ export const createLinkToken = async (user: User) => {
   }
 }
 
-export const createBankAccount = async ({
-  userId,
-  bankId,
-  accountId,
-  accessToken,
-  fundingSourceUrl,
-  shareableId,
-}: createBankAccountProps) => {
-  try {
-    const data = {
-      userId,
-      bankId,
-      accountId,
-      accessToken,
-      fundingSourceUrl,
-      shareableId,
-    };
-
-    const ref = await adminDb().collection(COLLECTIONS.banks).add({
-      ...data,
-      createdAt: serverTimestamp(),
-    });
-
-    return parseStringify({ $id: ref.id, ...data });
-  } catch (error) {
-    console.log(error);
-  }
-}
-
+/**
+ * Link a bank for the signed-in user. The user comes from the session, never
+ * from the browser. Returns { error } instead of throwing so the UI can show
+ * it (Next.js hides thrown messages in production).
+ */
 export const exchangePublicToken = async ({
   publicToken,
-  user,
 }: exchangePublicTokenProps) => {
+  const user = await getLoggedInUser();
+  if (!user) return { error: 'Please sign in again.' };
+
+  const banks = await getBanks({ userId: user.$id });
+  const limit = checkBankLimit(banks.length, getPlanForUser(user.planTier).tier);
+  if (!limit.allowed) return { error: limit.message };
+
+  let fundingSourceUrl: string | null | undefined;
   try {
     // Exchange public token for access token and item ID
     const response = await plaidClient.itemPublicTokenExchange({
@@ -187,7 +186,7 @@ export const exchangePublicToken = async ({
 
     const accessToken = response.data.access_token;
     const itemId = response.data.item_id;
-    
+
     // Get account information from Plaid using the access token
     const accountsResponse = await plaidClient.accountsGet({
       access_token: accessToken,
@@ -205,17 +204,15 @@ export const exchangePublicToken = async ({
     const processorTokenResponse = await plaidClient.processorTokenCreate(request);
     const processorToken = processorTokenResponse.data.processor_token;
 
-     // Create a funding source URL for the account using the Dwolla customer ID, processor token, and bank name
-     const fundingSourceUrl = await addFundingSource({
+    // Create a funding source URL for the account using the Dwolla customer ID, processor token, and bank name
+    fundingSourceUrl = await addFundingSource({
       dwollaCustomerId: user.dwollaCustomerId,
       processorToken,
       bankName: accountData.name,
     });
-    
-    // If the funding source URL is not created, throw an error
-    if (!fundingSourceUrl) throw Error;
 
-    // Create a bank account using the user ID, item ID, account ID, access token, funding source URL, and shareableId ID
+    if (!fundingSourceUrl) throw new Error('Dwolla did not create a funding source');
+
     await createBankAccount({
       userId: user.$id,
       bankId: itemId,
@@ -225,54 +222,18 @@ export const exchangePublicToken = async ({
       shareableId: encryptId(accountData.account_id),
     });
 
+    await createAuditLog({ userId: user.$id, action: 'bank.connect' });
+
     // Revalidate the path to reflect the changes
     revalidatePath("/");
 
-    // Return a success message
     return parseStringify({
       publicTokenExchange: "complete",
     });
   } catch (error) {
     console.error("An error occurred while creating exchanging token:", error);
-  }
-}
-
-export const getBanks = async ({ userId }: getBanksProps) => {
-  try {
-    const snap = await adminDb()
-      .collection(COLLECTIONS.banks)
-      .where('userId', '==', userId)
-      .get();
-
-    return parseStringify(toDocs(snap));
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-export const getBank = async ({ documentId }: getBankProps) => {
-  try {
-    const snap = await adminDb().collection(COLLECTIONS.banks).doc(documentId).get();
-    const bank = toDoc(snap);
-
-    return bank ? parseStringify(bank) : null;
-  } catch (error) {
-    console.log(error)
-  }
-}
-
-export const getBankByAccountId = async ({ accountId }: getBankByAccountIdProps) => {
-  try {
-    const snap = await adminDb()
-      .collection(COLLECTIONS.banks)
-      .where('accountId', '==', accountId)
-      .limit(2)
-      .get();
-
-    if(snap.size !== 1) return null;
-
-    return parseStringify(toDoc(snap.docs[0]));
-  } catch (error) {
-    console.log(error)
+    // Do not leave an orphan funding source in Dwolla.
+    if (fundingSourceUrl) await removeFundingSource(fundingSourceUrl);
+    return { error: 'We could not link this bank. Please try again.' };
   }
 }

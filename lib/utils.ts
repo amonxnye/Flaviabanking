@@ -213,14 +213,6 @@ export function decryptId(signedId: string) {
   return id;
 }
 
-export const getTransactionStatus = (date: Date) => {
-  const today = new Date();
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(today.getDate() - 2);
-
-  return date > twoDaysAgo ? "Processing" : "Success";
-};
-
 export const authFormSchema = (type: string) => z.object({
   firstName: type === 'sign-in' ? z.string().optional() : z.string().min(2, 'First name must be at least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'First name contains invalid characters'),
   lastName: type === 'sign-in' ? z.string().optional() : z.string().min(2, 'Last name must be at least 2 characters').max(50).regex(/^[a-zA-Z\s'-]+$/, 'Last name contains invalid characters'),

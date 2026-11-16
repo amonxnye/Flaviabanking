@@ -21,9 +21,17 @@ const WalletOverview = async () => {
       {/* Balance card */}
       <div className="rounded-xl bg-bank-gradient p-6 text-white">
         <p className="text-14 opacity-90">Wallet balance (confirmed collections)</p>
-        <p className="mt-2 text-4xl font-bold">{UGX.format(wallet?.balance || 0)}</p>
+        <p className="mt-2 text-4xl font-bold">
+          {wallet?.loadFailed ? 'Unavailable' : UGX.format(wallet?.balance || 0)}
+        </p>
         <p className="mt-2 text-12 opacity-80">Feyti Medical Group · UGX wallet</p>
       </div>
+
+      {wallet?.loadFailed && (
+        <div role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          We could not load your wallet right now. Refresh the page to try again.
+        </div>
+      )}
 
       {wallet?.notConfigured && (
         <div className="rounded-lg bg-amber-50 p-3 text-sm text-amber-700">
@@ -36,7 +44,7 @@ const WalletOverview = async () => {
       {/* Recent collections */}
       <div>
         <h2 className="mb-3 text-18 font-semibold text-gray-900">Recent collections</h2>
-        {transactions.length === 0 ? (
+        {transactions.length === 0 && !wallet?.loadFailed ? (
           <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 py-10 text-center text-sm text-gray-500">
             No collections yet. Request your first payment on the right.
           </div>

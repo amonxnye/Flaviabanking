@@ -56,6 +56,14 @@ export interface IotecTransaction {
   [key: string]: unknown;
 }
 
+/** ioTec answered with an HTTP error: the request definitely did not succeed. */
+export class IotecHttpError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "IotecHttpError";
+  }
+}
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -138,7 +146,7 @@ export async function initiateCollection(req: CollectRequest): Promise<IotecTran
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`ioTec collection failed (${res.status}): ${detail.slice(0, 300)}`);
+    throw new IotecHttpError(`ioTec collection failed (${res.status}): ${detail.slice(0, 300)}`, res.status);
   }
 
   return (await res.json()) as IotecTransaction;
@@ -167,4 +175,15 @@ export function isFailure(status: IotecStatus): boolean {
 
 export function isPending(status: IotecStatus): boolean {
   return !isSuccess(status) && !isFailure(status);
+}
+
+/**
+ * Ledger state machine guard. In-flight states (New, Pending, Sent,
+ * Processing, Indeterminate) may move anywhere; Success, Failed and Cancelled
+ * are final, so a late or out-of-order callback cannot change a settled row.
+ */
+export function canChangeLedgerStatus(from: string | undefined, to: string): boolean {
+  if (!to || from === to) return false;
+  if (!from) return true;
+  return isPending(from as IotecStatus);
 }
