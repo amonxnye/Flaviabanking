@@ -1,21 +1,20 @@
-import Image from 'next/image';
 import Link from 'next/link';
+import { LogoMark } from '@/components/Logo';
 
 export default function NotFound() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <div className="text-center max-w-lg">
-        <Image src="/icons/logo.svg" width={40} height={40} alt="Horizon logo" className="mx-auto mb-6" />
-        <h1 className="text-6xl font-bold text-gray-900 mb-3">404</h1>
-        <h2 className="text-2xl font-semibold text-gray-700 mb-4">Page Not Found</h2>
-        <p className="text-gray-600 mb-8">
-          This page doesn&apos;t exist or has moved.
-        </p>
-        <Link
-          href="/"
-          className="px-6 py-3 bg-bankGradient text-white rounded-lg font-semibold hover:opacity-90 transition-opacity inline-block"
-        >
-          Back to Dashboard
+    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas p-8">
+      <div className="flex max-w-md flex-col items-center gap-6 text-center">
+        <LogoMark className="size-8" />
+        <div className="flex flex-col gap-2">
+          <p className="figure text-13 text-ink-3">404</p>
+          <h1 className="text-24 font-medium text-ink">This page does not exist</h1>
+          <p className="text-14 text-ink-2">
+            The link may be old, or the page has moved
+          </p>
+        </div>
+        <Link href="/" className="btn-primary inline-flex items-center">
+          Back to overview
         </Link>
       </div>
     </main>

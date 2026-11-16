@@ -22,21 +22,25 @@ const RecentTransactions = ({
   )
 
   return (
-    <section className="recent-transactions">
+    <section className="flex w-full flex-col gap-4">
       <header className="flex items-center justify-between">
-        <h2 className="recent-transactions-label">Recent transactions</h2>
+        <h2 className="text-20 font-medium text-ink">Recent transactions</h2>
         <Link
           href={`/transaction-history/?id=${appwriteItemId}`}
-          className="view-all-btn"
+          className="btn-secondary"
         >
           View all
         </Link>
       </header>
 
       <Tabs defaultValue={appwriteItemId} className="w-full">
-      <TabsList className="recent-transactions-tablist">
+        <TabsList className="custom-scrollbar flex h-auto w-full justify-start gap-6 overflow-x-auto rounded-none border-b border-line bg-transparent p-0">
           {accounts.map((account: Account) => (
-            <TabsTrigger key={account.id} value={account.appwriteItemId}>
+            <TabsTrigger
+              key={account.id}
+              value={account.appwriteItemId}
+              className="rounded-none p-0 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
               <BankTabItem
                 key={account.id}
                 account={account}
@@ -50,7 +54,7 @@ const RecentTransactions = ({
           <TabsContent
             value={account.appwriteItemId}
             key={account.id}
-            className="space-y-4"
+            className="mt-4 flex flex-col gap-4"
           >
             <BankInfo 
               account={account}
@@ -58,13 +62,10 @@ const RecentTransactions = ({
               type="full"
             />
 
-            <TransactionsTable transactions={currentTransactions} />
-            
+            <TransactionsTable transactions={currentTransactions} compact />
 
             {totalPages > 1 && (
-              <div className="my-4 w-full">
-                <Pagination totalPages={totalPages} page={page} />
-              </div>
+              <Pagination totalPages={totalPages} page={page} />
             )}
           </TabsContent>
         ))}

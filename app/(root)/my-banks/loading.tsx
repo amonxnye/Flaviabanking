@@ -1,17 +1,12 @@
-import { BankCardSkeleton } from '@/components/LoadingSkeleton';
+import { BankCardSkeleton, PageHeaderSkeleton } from '@/components/LoadingSkeleton';
 
 export default function Loading() {
   return (
-    <section className="flex">
-      <div className="my-banks">
-        <div className="animate-pulse space-y-3 mb-8">
-          <div className="h-8 bg-gray-200 rounded w-64" />
-          <div className="h-5 bg-gray-200 rounded w-96" />
-        </div>
-        <div className="flex flex-wrap gap-6">
-          <BankCardSkeleton />
-          <BankCardSkeleton />
-        </div>
+    <section className="page">
+      <div className="animate-pulse"><PageHeaderSkeleton /></div>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,340px))] gap-6">
+        <BankCardSkeleton />
+        <BankCardSkeleton />
       </div>
     </section>
   );

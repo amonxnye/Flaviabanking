@@ -1,37 +1,20 @@
-import Image from "next/image";
-
-import { topCategoryStyles } from "@/constants";
+import { categoryColors } from "@/constants";
 import { cn } from "@/lib/utils";
 
-import { Progress } from "./ui/progress";
-
 const Category = ({ category }: CategoryProps) => {
-  const {
-    bg,
-    circleBg,
-    text: { main, count },
-    progress: { bg: progressBg, indicator },
-    icon,
-  } = topCategoryStyles[category.name as keyof typeof topCategoryStyles] ||
-  topCategoryStyles.default;
+  const share = category.totalCount ? (category.count / category.totalCount) * 100 : 0;
 
   return (
-    <div className={cn("gap-[18px] flex p-4 rounded-xl", bg)}>
-      <figure className={cn("flex-center size-10 rounded-full", circleBg)}>
-        <Image src={icon} width={20} height={20} alt={category.name} />
-      </figure>
-      <div className="flex w-full flex-1 flex-col gap-2">
-        <div className="text-14 flex justify-between">
-          <h2 className={cn("font-medium", main)}>{category.name}</h2>
-          <h3 className={cn("font-normal", count)}>{category.count}</h3>
-        </div>
-        <Progress
-          value={(category.count / category.totalCount) * 100}
-          className={cn("h-2 w-full", progressBg)}
-          indicatorClassName={cn("h-2 w-full", indicator)}
-        />
+    <li className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 text-14">
+        <span className={cn("status-dot", categoryColors[category.name] || categoryColors.default)} aria-hidden="true" />
+        <span className="flex-1 truncate text-ink">{category.name}</span>
+        <span className="figure text-13 text-ink-3">{category.count}</span>
       </div>
-    </div>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-subtle" role="progressbar" aria-label={category.name} aria-valuenow={Math.round(share)} aria-valuemin={0} aria-valuemax={100}>
+        <div className="h-full rounded-full bg-[#3F3F46]" style={{ width: `${share}%` }} />
+      </div>
+    </li>
   );
 };
 

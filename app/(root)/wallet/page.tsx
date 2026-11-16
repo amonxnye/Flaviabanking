@@ -8,13 +8,13 @@ const Wallet = async () => {
   if (!loggedIn) return null;
 
   return (
-    <section className="no-scrollbar flex w-full flex-col overflow-y-scroll bg-gray-25 p-8 xl:max-h-screen xl:overflow-y-scroll">
+    <section className="page">
       <HeaderBox
         title="Wallet"
-        subtext="Collect mobile-money payments from customers into your ioTec wallet."
+        subtext="Collect mobile-money payments from customers into your ioTec wallet"
       />
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <WalletOverview />
         <CollectPaymentForm />
       </div>

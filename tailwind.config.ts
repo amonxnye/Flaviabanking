@@ -20,72 +20,56 @@ const config = {
     },
     extend: {
       colors: {
-        fill: {
-          1: "rgba(255, 255, 255, 0.10)",
+        // One graphite ramp for surfaces, borders and text.
+        canvas: "#F7F7F5",
+        surface: "#FFFFFF",
+        subtle: "#F1F1EF",
+        line: "rgb(24 24 27 / 0.09)",
+        "line-strong": "rgb(24 24 27 / 0.16)",
+        ink: {
+          DEFAULT: "#18181B",
+          2: "#52525B",
+          3: "#71717A",
         },
-        bankGradient: "#0179FE",
-        indigo: {
-          500: "#6172F3",
-          700: "#3538CD",
+        // The one accent: the deep blue of the Horizon mark.
+        brand: {
+          DEFAULT: "#0058D4",
+          hover: "#004BB5",
+          soft: "#EDF3FC",
+          deep: "#0B2A57",
         },
-        success: {
-          25: "#F6FEF9",
-          50: "#ECFDF3",
-          100: "#D1FADF",
-          600: "#039855",
-          700: "#027A48",
-          900: "#054F31",
-        },
-        pink: {
-          25: "#FEF6FB",
-          100: "#FCE7F6",
-          500: "#EE46BC",
-          600: "#DD2590",
-          700: "#C11574",
-          900: "#851651",
-        },
-        blue: {
-          25: "#F5FAFF",
-          100: "#D1E9FF",
-          500: "#2E90FA",
-          600: "#1570EF",
-          700: "#175CD3",
-          900: "#194185",
-        },
-        sky: {
-          1: "#F3F9FF",
-        },
-        black: {
-          1: "#00214F",
-          2: "#344054",
-        },
-        gray: {
-          25: "#FCFCFD",
-          200: "#EAECF0",
-          300: "#D0D5DD",
-          500: "#667085",
-          600: "#475467",
-          700: "#344054",
-          900: "#101828",
-        },
+        positive: { DEFAULT: "#1D7A4C", soft: "#EDF6F0" },
+        negative: { DEFAULT: "#B42318", soft: "#FBEEEC" },
+        caution: { DEFAULT: "#93570A", soft: "#FBF3E4" },
+        // Tokens the shadcn/ui primitives expect.
+        background: "#FFFFFF",
+        foreground: "#18181B",
+        primary: { DEFAULT: "#0058D4", foreground: "#FFFFFF" },
+        secondary: { DEFAULT: "#F1F1EF", foreground: "#18181B" },
+        muted: { DEFAULT: "#F1F1EF", foreground: "#71717A" },
+        accent: { DEFAULT: "#F1F1EF", foreground: "#18181B" },
+        destructive: { DEFAULT: "#B42318", foreground: "#FFFFFF" },
+        popover: { DEFAULT: "#FFFFFF", foreground: "#18181B" },
+        input: "rgb(24 24 27 / 0.16)",
+        ring: "#0058D4",
+        border: "rgb(24 24 27 / 0.09)",
       },
-      backgroundImage: {
-        "bank-gradient": "linear-gradient(90deg, #0179FE 0%, #4893FF 100%)",
-        "gradient-mesh": "url('/icons/gradient-mesh.svg')",
-        "bank-green-gradient":
-          "linear-gradient(90deg, #01797A 0%, #489399 100%)",
+      borderColor: {
+        DEFAULT: "rgb(24 24 27 / 0.09)",
       },
       boxShadow: {
-        form: "0px 1px 2px 0px rgba(16, 24, 40, 0.05)",
-        chart:
-          "0px 1px 3px 0px rgba(16, 24, 40, 0.10), 0px 1px 2px 0px rgba(16, 24, 40, 0.06)",
-        profile:
-          "0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03)",
-        creditCard: "8px 10px 16px 0px rgba(0, 0, 0, 0.05)",
+        card: "0 1px 2px 0 rgb(24 24 27 / 0.04)",
+        float: "0 1px 2px 0 rgb(15 23 42 / 0.08), 0 12px 24px -12px rgb(15 23 42 / 0.28)",
       },
       fontFamily: {
-        inter: "var(--font-inter)",
-        "ibm-plex-serif": "var(--font-ibm-plex-serif)",
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+      },
+      transitionTimingFunction: {
+        DEFAULT: "cubic-bezier(0.2, 0, 0, 1)",
+      },
+      transitionDuration: {
+        DEFAULT: "150ms",
       },
       keyframes: {
         "accordion-down": {

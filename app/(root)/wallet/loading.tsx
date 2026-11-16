@@ -1,16 +1,15 @@
+import { PageHeaderSkeleton } from '@/components/LoadingSkeleton';
+
 export default function Loading() {
   return (
-    <section className="flex w-full flex-col bg-gray-25 p-8">
-      <div className="animate-pulse space-y-3">
-        <div className="h-8 w-40 rounded bg-gray-200" />
-        <div className="h-5 w-96 rounded bg-gray-200" />
-      </div>
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <div className="animate-pulse space-y-6">
-          <div className="h-32 rounded-xl bg-gray-200" />
-          <div className="h-64 rounded-xl bg-gray-100 border border-gray-200" />
+    <section className="page animate-pulse" role="status" aria-label="Loading wallet">
+      <PageHeaderSkeleton />
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="flex flex-col gap-8">
+          <div className="card h-32" />
+          <div className="card h-64" />
         </div>
-        <div className="h-96 animate-pulse rounded-xl bg-gray-100 border border-gray-200" />
+        <div className="card h-[480px]" />
       </div>
     </section>
   );

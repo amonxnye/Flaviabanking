@@ -5,7 +5,7 @@ import { Button } from './ui/button'
 import { PlaidLinkOnSuccess, PlaidLinkOptions, usePlaidLink } from 'react-plaid-link'
 import { useRouter } from 'next/navigation';
 import { createLinkToken, exchangePublicToken } from '@/lib/actions/user.actions';
-import Image from 'next/image';
+import { Plus } from 'lucide-react';
 
 const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
   const router = useRouter();
@@ -59,11 +59,16 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
   const disabled = !ready || linking;
 
   if (tokenFailed) {
-    return (
-      <div className="flex flex-col gap-2" role="alert">
-        <p className="text-14 text-red-600">Bank linking is unavailable right now.</p>
-        <Button onClick={getLinkToken} variant="outline">Try again</Button>
+    return variant === 'primary' ? (
+      <div className="flex flex-col items-center gap-2" role="alert">
+        <p className="text-14 text-negative">Bank linking is unavailable right now</p>
+        <button type="button" onClick={getLinkToken} className="btn-secondary h-10">Try again</button>
       </div>
+    ) : (
+      <button type="button" onClick={getLinkToken} className="sidebar-link w-full" role="alert" aria-label="Bank linking is unavailable. Try again">
+        <Plus size={18} strokeWidth={1.5} aria-hidden="true" className="shrink-0 text-negative" />
+        <span className="max-xl:hidden">Linking unavailable, retry</span>
+      </button>
     );
   }
 
@@ -73,33 +78,23 @@ const PlaidLink = ({ user, variant }: PlaidLinkProps) => {
         <Button
           onClick={() => open()}
           disabled={disabled}
-          className="plaidlink-primary"
+          className="btn-primary"
         >
-          {linking ? 'Linking bank...' : 'Connect bank'}
+          {linking ? 'Linking bank…' : 'Connect bank'}
         </Button>
       ): variant === 'ghost' ? (
-        <Button onClick={() => open()} disabled={disabled} variant="ghost" className="plaidlink-ghost">
-          <Image 
-            src="/icons/connect-bank.svg"
-            alt="connect bank"
-            width={24}
-            height={24}
-          />
-          <p className='hidden text-[16px] font-semibold text-black-2 xl:block'>Connect bank</p>
+        <Button onClick={() => open()} disabled={disabled} variant="ghost" className="sidebar-link w-full justify-start">
+          <Plus size={18} strokeWidth={1.5} aria-hidden="true" className="text-ink-3" />
+          <span className="max-xl:hidden">Connect bank</span>
         </Button>
       ): (
-        <Button onClick={() => open()} disabled={disabled} className="plaidlink-default">
-          <Image 
-            src="/icons/connect-bank.svg"
-            alt="connect bank"
-            width={24}
-            height={24}
-          />
-          <p className='text-[16px] font-semibold text-black-2'>Connect bank</p>
-        </Button>
+        <button type="button" onClick={() => open()} disabled={disabled} className="sidebar-link w-full disabled:opacity-60" aria-label="Connect bank">
+          <Plus size={18} strokeWidth={1.5} aria-hidden="true" className="shrink-0 text-ink-3" />
+          <span className="max-xl:hidden">Connect bank</span>
+        </button>
       )}
       {error && (
-        <p className="text-14 text-red-600" role="alert">{error}</p>
+        <p className="text-13 text-negative" role="alert">{error}</p>
       )}
     </>
   )

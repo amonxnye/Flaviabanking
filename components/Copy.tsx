@@ -1,7 +1,6 @@
 "use client";
+import { Check, Copy as CopyIcon } from "lucide-react";
 import { useState } from "react";
-
-import { Button } from "./ui/button";
 
 const Copy = ({ title }: { title: string }) => {
   const [hasCopied, setHasCopied] = useState(false);
@@ -16,49 +15,21 @@ const Copy = ({ title }: { title: string }) => {
   };
 
   return (
-    <Button
-      data-state="closed"
-      className="mt-3 flex max-w-[320px] gap-4"
-      variant="secondary"
+    <button
+      type="button"
+      className="flex h-9 w-full items-center gap-2 rounded-lg border border-line bg-surface px-3 text-ink-3 transition-colors hover:bg-subtle hover:text-ink"
       onClick={copyToClipboard}
+      aria-label={hasCopied ? "Shareable ID copied" : "Copy shareable ID"}
     >
-      <p className="line-clamp-1 w-full max-w-full text-xs font-medium text-black-2">
+      <span className="figure line-clamp-1 flex-1 text-left text-12 text-ink-2">
         {title}
-      </p>
-
-      {!hasCopied ? (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="mr-2 size-4"
-        >
-          <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
-          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
-        </svg>
+      </span>
+      {hasCopied ? (
+        <Check size={16} strokeWidth={1.5} aria-hidden="true" className="text-positive" />
       ) : (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="mr-2 size-4"
-        >
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
+        <CopyIcon size={16} strokeWidth={1.5} aria-hidden="true" />
       )}
-    </Button>
+    </button>
   );
 };
 
